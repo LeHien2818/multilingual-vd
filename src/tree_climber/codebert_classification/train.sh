@@ -1,0 +1,16 @@
+python run_debug.py \
+    --output_dir=./saved_models_pr_ccpp_again \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --do_train \
+    --do_test \
+    --train_data_file=/drive1/cuongtm/hienlt/moe/dataset/moe/pr_sv_no_comment/under/primevul_sven_train_nocmt_under.jsonl \
+    --eval_data_file=/drive1/cuongtm/hienlt/moe/dataset/moe/pr_sv_no_comment/under/primevul_sven_val_nocmt_under.jsonl \
+    --test_data_file=/drive1/cuongtm/hienlt/moe/dataset/moe/pr_sv_no_comment/nounder/primevul_sven_test_nocmt_nounder.jsonl \
+    --num_train_epochs 10 \
+    --block_size 256 \
+    --train_batch_size 16 \
+    --eval_batch_size 16 \
+    --learning_rate 2e-5 \
+    --max_grad_norm 1.0 \
+    --seed 123456  2>&1 | tee train_pr_ccpp_again.log
