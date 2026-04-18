@@ -17,11 +17,9 @@ from datetime import datetime
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from tqdm.auto import tqdm
-from config_hien import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, LANG_CLUSTER, F1_BEST_STATE
+from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, LANG_CLUSTER, F1_BEST_STATE
 
-# =====================================================================
-# LOGGING SETUP - Write to both file and console
-# =====================================================================
+# LOGGING SETUP 
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
 log_file = log_dir / f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
@@ -55,9 +53,7 @@ def print(*args, **kwargs):
     message = ' '.join(str(arg) for arg in args)
     log.info(message)
 
-# =====================================================================
-# THÀNH PHẦN 1: MẠNG CHUYÊN GIA (EXPERT NETWORKS) - IMPROVED
-# =====================================================================
+# EXPERT NETWORKS
 class CWE_Expert(nn.Module):
     def __init__(self, input_dim, hidden_dim, dropout_rate=0.1):
         super(CWE_Expert, self).__init__()
@@ -84,9 +80,7 @@ class CWE_Expert(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-# =====================================================================
-# THÀNH PHẦN 2: BỘ ĐỊNH TUYẾN ĐA NHIỆM (GATING NETWORK / ROUTER) - IMPROVED
-# =====================================================================
+# ROUTER
 class TopKRouter(nn.Module):
     def __init__(self, input_dim, num_experts, top_k=1):
         super(TopKRouter, self).__init__()
@@ -105,9 +99,7 @@ class TopKRouter(nn.Module):
         sparse_weights = torch.zeros_like(logits).scatter(-1, top_k_indices, top_k_weights)
         return sparse_weights, top_k_indices, logits
 
-# =====================================================================
-# THÀNH PHẦN 3: KIẾN TRÚC TỔNG THỂ MOE-VD KẾT HỢP - IMPROVED WITH FINE-TUNING
-# =====================================================================
+# MOE-VD Architecture 
 class MoE_VulnerabilityDetector(nn.Module):
     def __init__(self, input_dim=768, hidden_dim=256, num_experts=4, top_k=1, dropout_rate=0.1, 
                  encoder_name="microsoft/codebert-base", freeze_encoder=False):
@@ -179,9 +171,7 @@ class MoE_VulnerabilityDetector(nn.Module):
 
         return final_output, fraction_routed, prob_per_expert, router_logits
 
-# =====================================================================
-# THÀNH PHẦN 4: HÀM MẤT MÁT ĐA NHIỆM VÀ ĐÁNH GIÁ (LOSS & METRICS) - IMPROVED
-# =====================================================================
+# loss && metrics
 def focal_loss(logits, targets, alpha=0.25, gamma=2.0, label_smoothing=0.0, pos_weight=None):
     """Focal Loss with label smoothing and class weighting for handling class imbalance"""
     # Apply label smoothing
@@ -626,9 +616,6 @@ def build_tqdm(iterable, desc, unit, leave=False):
         smoothing=0.1,
     )
 
-# =====================================================================
-# THÀNH PHẦN 5: LOAD DỮ LIỆU TỪ FILE
-# =====================================================================
 
 def load_raw_data(file_path):
     """Load C code data from JSONL file"""
@@ -678,22 +665,6 @@ def remap_type_index(train_data, val_data, test_data, enable_lang_cluster=False)
 
     return train_data, val_data, test_data, language_to_index
 
-class MockCodeEncoder:
-    """CodeBERT encoder with attention pooling for better embeddings"""
-    def __init__(self, dim=768, device="cpu", use_attention_pooling=True):
-        self.dim = dim
-        self.device = device
-        self.use_attention_pooling = use_attention_pooling
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
-            self.model = AutoModel.from_pretrained("microsoft/codebert-base")
-            self.model.to(device)
-            self.model.eval()
-            print(f"CodeBERT model loaded on {device} (Attention pooling: {use_attention_pooling})")
-        except Exception as e:
-            print(f"Warning: Could not load CodeBERT: {e}. Using random embeddings.")
-            self.tokenizer = None
-            self.model = None
 
     def encode(self, code_str):
         if self.model is None:
@@ -742,63 +713,6 @@ class VulnerabilityDataset(Dataset):
         language_label = get_language_label(item)
         return code_str, vuln_label, cwe_label, cluster_type_label, language_label
 
-# =====================================================================
-# STRATIFIED DATA SPLIT - Maintain class balance across train/val/test
-# =====================================================================
-def build_stratified_data_split(data_list, seed=42, train_ratio=0.7, val_ratio=0.15):
-    """Split data into stratified train/val/test subsets maintaining class balance.
-    
-    Args:
-        data_list: List of data dictionaries with 'vuln' key
-        seed: Random seed for reproducibility
-        train_ratio: Proportion of data for training (default 0.7 = 70%)
-        val_ratio: Proportion of data for validation (default 0.15 = 15%)
-        test_ratio: Proportion of data for testing (default 0.15 = 15%)
-    
-    Returns:
-        train_data, val_data, test_data: Stratified subsets of data
-    """
-    labels = [int(item['vuln']) for item in data_list]
-    indices = np.arange(len(labels))
-    
-    # First split: 70% train, 30% temp
-    train_idx, temp_idx, train_y, temp_y = train_test_split(
-        indices,
-        labels,
-        test_size=(1 - train_ratio),
-        random_state=seed,
-        stratify=labels
-    )
-    
-    # Second split: 50/50 of temp for val/test (15/15 of total)
-    val_ratio_in_temp = val_ratio / (1 - train_ratio)
-    val_idx, test_idx = train_test_split(
-        temp_idx,
-        test_size=(1 - val_ratio_in_temp),
-        random_state=seed,
-        stratify=temp_y
-    )
-    
-    train_data = [data_list[i] for i in train_idx]
-    val_data = [data_list[i] for i in val_idx]
-    test_data = [data_list[i] for i in test_idx]
-    
-    # Log class distribution
-    train_vuln = sum(1 for item in train_data if item['vuln'] == 1)
-    val_vuln = sum(1 for item in val_data if item['vuln'] == 1)
-    test_vuln = sum(1 for item in test_data if item['vuln'] == 1)
-    
-    print(f"\nStratified Data Split (seed={seed}):")
-    print(f"  Train: {len(train_data)} samples ({train_vuln} vulnerable, {len(train_data)-train_vuln} safe)")
-    print(f"  Val:   {len(val_data)} samples ({val_vuln} vulnerable, {len(val_data)-val_vuln} safe)")
-    print(f"  Test:  {len(test_data)} samples ({test_vuln} vulnerable, {len(test_data)-test_vuln} safe)")
-    print(f"  Train vuln%: {100*train_vuln/len(train_data):.1f}% | Val vuln%: {100*val_vuln/len(val_data):.1f}% | Test vuln%: {100*test_vuln/len(test_data):.1f}%")
-    
-    return train_data, val_data, test_data
-
-# =====================================================================
-# THÀNH PHẦN 6: QUY TRÌNH TRAIN - VALIDATE - TEST (OPTIMIZED)
-# =====================================================================
 def run_pipeline():
     train_data = load_raw_data(TRAIN_DATA_PATH)
     val_data = load_raw_data(VAL_DATA_PATH)

@@ -14,13 +14,13 @@ from tqdm import tqdm
 EPOCHS = 10
 BATCH_SIZE = 16
 LEARNING_RATE = 2e-5
-MODEL_NAME = 'microsoft/codebert-base'  # Adjust if needed
+MODEL_NAME = 'microsoft/codebert-base'  
 TEACHER_SAVE_PATH = './models/baseline_C_Primevul_model.pth'
 INCREMENTAL_SAVE_PATH = './models/C_based_incremental_model.pth'
 LOG_FILE = './logs/train_C_based_incremental.log'
 TRAIN_FILES = ['/drive1/cuongtm/hienlt/mvd/dataset/SVEN/sven_train.csv']
 VAL_FILES = ['/drive1/cuongtm/hienlt/mvd/dataset/SVEN/sven_val.csv']
-NUMS_LABELS = 3  # Adjust based on your incremental learning setup (e.g., 2 for vul/non-vul, 3 for vul-C/vul-Python/non-vul, etc.)
+NUMS_LABELS = 3  # Adjust based on your incremental learning setup (e.g., 2 for vul/non-vul, 3 for vul-C/vul-Python/non-vul)
 
 class CodeDataset(Dataset):
     def __init__(self, data, tokenizer, max_len=512):
@@ -64,22 +64,22 @@ def create_data_loaders(train_data, val_data, tokenizer, batch_size=BATCH_SIZE):
 
 def load_model(model_name, num_labels, model_path):
     """Load the teacher model from PTH file, and resize classifier if num_labels changed for incremental learning."""
-    # First, load baseline model to get old num_labels
-    temp_model = MVDModel(model_name, 2)  # Assume baseline is binary (vul/non-vul)
+    # Load baseline model to get old num_labels
+    temp_model = MVDModel(model_name, 2)  
     temp_model.load_state_dict(torch.load(model_path))
-    old_num_labels = temp_model.classifier.out_features  # Get actual num_labels from loaded model
+    old_num_labels = temp_model.classifier.out_features  # Get actual num_labels 
     
     if num_labels != old_num_labels:
         logger = get_logger(__name__)
         logger.warning(f"num_labels changed from {old_num_labels} to {num_labels}. Resizing classifier layer for incremental labels (e.g., vul-C, vul-Python).")
-        # Create new model with new num_labels
+
         model = MVDModel(model_name, num_labels)
-        # Copy weights for existing labels (0: non-vul, 1: vul)
+        
         model.bert.load_state_dict(temp_model.bert.state_dict())
         with torch.no_grad():
             model.classifier.weight[:old_num_labels] = temp_model.classifier.weight
             model.classifier.bias[:old_num_labels] = temp_model.classifier.bias
-        # New neurons (for specific vul types like vul-C, vul-Python) are initialized randomly
+        # New neurons are initialized randomly
     else:
         model = MVDModel(model_name, num_labels)
         model.load_state_dict(torch.load(model_path))
