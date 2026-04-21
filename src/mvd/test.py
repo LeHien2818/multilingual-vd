@@ -5,8 +5,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 from sklearn.metrics import f1_score, classification_report, accuracy_score, precision_score, recall_score
-from model import MVDModel
-from log import setup_logging, get_logger
+from mvd.model import MVDModel
+from mvd.log import setup_logging, get_logger
 import argparse
 
 BATCH_SIZE = 16

@@ -1,24 +1,21 @@
 from turtle import pd
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-import random
 import json
 import numpy as np
+import os
 import pandas as pd
-from transformers import AutoTokenizer, AutoModel
 import copy
 import logging
 import sys
 from pathlib import Path
 from datetime import datetime
 from collections import Counter
-from sklearn.model_selection import train_test_split
 from tqdm.auto import tqdm
-from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, LANG_CLUSTER, F1_BEST_STATE
-
+from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, LANG_CLUSTER, F1_BEST_STATE, MODEL_SAVE_DIR, TEST_MODE
+from MoE_model import MoE_VulnerabilityDetector
 # LOGGING SETUP 
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
@@ -53,123 +50,6 @@ def print(*args, **kwargs):
     message = ' '.join(str(arg) for arg in args)
     log.info(message)
 
-# EXPERT NETWORKS
-class CWE_Expert(nn.Module):
-    def __init__(self, input_dim, hidden_dim, dropout_rate=0.1):
-        super(CWE_Expert, self).__init__()
-        self.net = nn.Sequential(
-            nn.LayerNorm(input_dim),
-            nn.Linear(input_dim, hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout_rate),
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.GELU(),
-            nn.Dropout(dropout_rate),
-            nn.LayerNorm(hidden_dim // 2),
-            nn.Linear(hidden_dim // 2, 1)
-        )
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.net:
-            if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
-                nn.init.zeros_(m.bias)
-
-    def forward(self, x):
-        return self.net(x)
-
-# ROUTER
-class TopKRouter(nn.Module):
-    def __init__(self, input_dim, num_experts, top_k=1):
-        super(TopKRouter, self).__init__()
-        self.num_experts = num_experts
-        self.top_k = min(top_k, num_experts)
-        self.norm = nn.LayerNorm(input_dim)
-        self.routing_layer = nn.Linear(input_dim, num_experts)
-        nn.init.kaiming_normal_(self.routing_layer.weight, nonlinearity='relu')
-        nn.init.zeros_(self.routing_layer.bias)
-
-    def forward(self, x):
-        x_norm = self.norm(x)
-        logits = self.routing_layer(x_norm)
-        top_k_logits, top_k_indices = torch.topk(logits, self.top_k, dim=-1)
-        top_k_weights = F.softmax(top_k_logits, dim=-1)
-        sparse_weights = torch.zeros_like(logits).scatter(-1, top_k_indices, top_k_weights)
-        return sparse_weights, top_k_indices, logits
-
-# MOE-VD Architecture 
-class MoE_VulnerabilityDetector(nn.Module):
-    def __init__(self, input_dim=768, hidden_dim=256, num_experts=4, top_k=1, dropout_rate=0.1, 
-                 encoder_name="microsoft/codebert-base", freeze_encoder=False):
-        super(MoE_VulnerabilityDetector, self).__init__()
-        self.num_experts = num_experts
-        
-        # Add CodeBERT encoder to the model (like baseline)
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(encoder_name)
-            self.encoder = AutoModel.from_pretrained(encoder_name)
-            if freeze_encoder:
-                for param in self.encoder.parameters():
-                    param.requires_grad = False
-            print(f"CodeBERT encoder loaded: {encoder_name} (freeze={freeze_encoder})")
-        except Exception as e:
-            print(f"Warning: Could not load CodeBERT: {e}")
-            self.encoder = None
-            self.tokenizer = None
-        
-        self.input_norm = nn.LayerNorm(input_dim)
-        self.router = TopKRouter(input_dim, num_experts, top_k)
-        self.experts = nn.ModuleList([CWE_Expert(input_dim, hidden_dim, dropout_rate) for _ in range(num_experts)])
-
-    def encode_code(self, code_strings, device):
-        """Encode code strings to embeddings using CodeBERT (on-the-fly, trainable)"""
-        if self.encoder is None:
-            raise ValueError("Encoder not loaded")
-        
-        inputs = self.tokenizer(
-            code_strings,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
-        )
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-        
-        outputs = self.encoder(**inputs)
-        # Mean pooling with attention mask
-        hidden_states = outputs.last_hidden_state
-        attention_mask = inputs['attention_mask'].unsqueeze(-1)
-        masked_hidden = hidden_states * attention_mask
-        sum_hidden = masked_hidden.sum(dim=1)
-        sum_mask = attention_mask.sum(dim=1)
-        embeddings = sum_hidden / sum_mask
-        
-        return embeddings
-
-    def forward(self, x):
-        x_orig = x
-        x = self.input_norm(x)
-        
-        routing_weights, top_k_indices, router_logits = self.router(x)
-        batch_size = x.size(0)
-        final_output = torch.zeros(batch_size, 1, device=x.device, dtype=x.dtype)
-
-        routing_probs = F.softmax(router_logits, dim=-1)
-        fraction_routed = routing_weights.gt(0).float().mean(dim=0)
-        prob_per_expert = routing_probs.mean(dim=0)
-
-        # Vectorized expert processing
-        for i, expert in enumerate(self.experts):
-            expert_mask = (routing_weights[:, i] > 0)
-            if expert_mask.any():
-                expert_inputs = x[expert_mask]
-                weights = routing_weights[expert_mask, i].unsqueeze(1)
-                expert_outputs = expert(expert_inputs)
-                final_output[expert_mask] += expert_outputs * weights
-
-        return final_output, fraction_routed, prob_per_expert, router_logits
 
 # loss && metrics
 def focal_loss(logits, targets, alpha=0.25, gamma=2.0, label_smoothing=0.0, pos_weight=None):
@@ -316,13 +196,11 @@ def get_num_classes_cwe(data_list, label_field='cwe'):
     positive_cwes = {c for c in cwe_ids if c >= 0}
     negative_cwes = {c for c in cwe_ids if c < 0}
     
-    # For CrossEntropy, we need num_classes based only on positive indices
+    # For CrossEntropy, Need num_classes based only on positive indices
     if positive_cwes:
         max_cwe_index = max(positive_cwes)
-        min_positive_cwe = min(positive_cwes)
         num_classes = max_cwe_index + 1
     else:
-        min_positive_cwe = float('inf')
         num_classes = 0
     
     min_cwe_index = min(cwe_ids)
@@ -666,31 +544,6 @@ def remap_type_index(train_data, val_data, test_data, enable_lang_cluster=False)
     return train_data, val_data, test_data, language_to_index
 
 
-    def encode(self, code_str):
-        if self.model is None:
-            return torch.randn(self.dim)
-        
-        with torch.no_grad():
-            inputs = self.tokenizer(code_str, return_tensors="pt", max_length=512, truncation=True)
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            outputs = self.model(**inputs)
-            
-            if self.use_attention_pooling:
-                # Attention pooling: weighted average of all tokens
-                hidden_states = outputs.last_hidden_state  # [1, seq_len, 768]
-                attention_mask = inputs['attention_mask'].unsqueeze(-1)  # [1, seq_len, 1]
-                
-                # Mean pooling with attention mask
-                masked_hidden = hidden_states * attention_mask
-                sum_hidden = masked_hidden.sum(dim=1)
-                sum_mask = attention_mask.sum(dim=1)
-                embedding = (sum_hidden / sum_mask).squeeze(0)
-            else:
-                # [CLS] token only
-                embedding = outputs.last_hidden_state[:, 0, :].squeeze(0)
-        
-        return embedding
-
 class VulnerabilityDataset(Dataset):
     def __init__(self, data_list, encoder=None, embeddings=None):
         self.data = data_list
@@ -704,7 +557,7 @@ class VulnerabilityDataset(Dataset):
     def __getitem__(self, idx):
         item = self.data[idx]
         
-        # Return raw code strings (not embeddings) for on-the-fly encoding
+        # Return raw code strings 
         code_str = item["code"]
         vuln_label = torch.tensor([item["vuln"]], dtype=torch.float32)
         # print(f"Item {idx} - CWE: {item['cwe']}, type: {type(item['cwe'])}")
@@ -725,14 +578,13 @@ def run_pipeline():
         print(f"  TEST_DATA_PATH: {TEST_DATA_PATH}")
         return
 
-    train_data, val_data, test_data, language_to_index = remap_type_index(
+    train_data, val_data, test_data, _ = remap_type_index(
         train_data,
         val_data,
         test_data,
         enable_lang_cluster=LANG_CLUSTER,
     )
 
-    # 1. Khởi tạo thiết bị (GPU nếu có)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\n{'='*60}")
     print(f"TRAINING DEVICE: {device}")
@@ -811,17 +663,16 @@ def run_pipeline():
     if pos_weight is not None:
         pos_weight = pos_weight.to(device)
     
-    # 4. No precomputation - we'll encode on-the-fly for fine-tuning
     print("\n" + "="*60)
     print("Using on-the-fly encoding (fine-tuning enabled)")
     print("="*60)
     
-    # 5. Tạo DataLoaders WITHOUT cached embeddings
+    # 5. DataLoaders
     train_dataset = VulnerabilityDataset(train_data)
     val_dataset = VulnerabilityDataset(val_data)
     test_dataset = VulnerabilityDataset(test_data)
     
-    # Create WeightedRandomSampler for class balance (like baseline)
+    # Create WeightedRandomSampler for class balance
     train_labels = [int(item['vuln']) for item in train_data]
     train_class_counts = np.bincount(train_labels, minlength=2)
     class_weights_sampling = 1.0 / np.maximum(train_class_counts, 1)
@@ -840,7 +691,7 @@ def run_pipeline():
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    # 6. Khởi tạo Model với encoder (fine-tunable)
+    # 6. Initialize Model with encoder (fine-tunable)
     model = MoE_VulnerabilityDetector(
         input_dim=768, 
         hidden_dim=256, 
@@ -848,11 +699,9 @@ def run_pipeline():
         top_k=1, 
         dropout_rate=0.1,
         encoder_name="microsoft/codebert-base",
-        freeze_encoder=False  # CRITICAL: Allow fine-tuning
+        freeze_encoder=False  # Allow fine-tuning
     ).to(device)
     
-    # CRITICAL FIX: Lower learning rate like baseline (2e-5 instead of 2e-3)
-    # High lr (2e-3) was causing instability and poor performance
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5, weight_decay=1e-5)
     
     # Adjust epochs and scheduler from config
@@ -878,69 +727,23 @@ def run_pipeline():
     print(f"Best state criterion: Validation {monitor_name}")
     
     print(f"\n{'='*60}")
-    print(f"BẮT ĐẦU HUẤN LUYỆN KIẾN TRÚC MoE (OPTIMIZED)")
+    print(f"STARTING TRAINING OF MoE ARCHITECTURE (OPTIMIZED)")
     print(f"{'='*60}")
-    
-    for epoch in build_tqdm(range(epochs), desc="Training epochs", unit="epoch", leave=True):
-        # --- TRAIN LOOP ---
-        model.train()
-        train_loss, train_acc = 0.0, 0.0
-        train_bce, train_ce, train_aux = 0.0, 0.0, 0.0
+    if not TEST_MODE:
+        for epoch in build_tqdm(range(epochs), desc="Training epochs", unit="epoch", leave=True):
+            # TRAIN
+            model.train()
+            train_loss, train_acc = 0.0, 0.0
+            train_bce, train_ce, train_aux = 0.0, 0.0, 0.0
 
-        train_pbar = build_tqdm(
-            train_loader,
-            desc=f"Epoch {epoch+1}/{epochs}",
-            unit="batch",
-            leave=False,
-        )
-        for batch_idx, (code_batch, vuln, cwe, cluster_type, languages) in enumerate(train_pbar, start=1):
-            # Encode code on-the-fly (allows gradient flow to encoder)
-            emb = model.encode_code(code_batch, device)
-            vuln, cluster_type = vuln.to(device), cluster_type.to(device)
-            cwe_cluster = torch.tensor(
-                [cwe_to_cluster[int(c.item())] for c in cluster_type],
-                dtype=torch.long,
-                device=device
+            train_pbar = build_tqdm(
+                train_loader,
+                desc=f"Epoch {epoch+1}/{epochs}",
+                unit="batch",
+                leave=False,
             )
-            optimizer.zero_grad()
-
-            logits, frac_routed, prob_exp, router_logits = model(emb)
-            loss, bce, ce, aux = moe_multitask_loss(logits, vuln, router_logits, cwe_cluster,
-                                                     frac_routed, prob_exp, num_experts=num_experts, 
-                                                     pos_weight=pos_weight, use_focal=True,
-                                                     label_smoothing=0.05,
-                                                     alpha=0.005, beta=0.2)
-
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
-
-            train_loss += loss.item()
-            train_bce += bce.item()
-            train_ce += ce.item()
-            train_aux += aux.item()
-            batch_acc = calculate_accuracy(logits, vuln).item()
-            train_acc += batch_acc
-
-            train_pbar.set_postfix({
-                "loss": f"{train_loss / batch_idx:.4f}",
-                "acc": f"{train_acc / batch_idx:.4f}",
-            })
-
-            # Heartbeat log for screen/ssh sessions where tqdm refresh can look frozen.
-            if batch_idx % 50 == 0:
-                print(
-                    f"Epoch {epoch+1}/{epochs} - batch {batch_idx}/{len(train_loader)} "
-                    f"| loss={train_loss / batch_idx:.4f} | acc={train_acc / batch_idx:.4f}"
-                )
-
-        # --- VALIDATION LOOP ---
-        model.eval()
-        val_loss, val_acc = 0.0, 0.0
-        
-        with torch.no_grad():
-            for code_batch, vuln, cwe, cluster_type, languages in val_loader:
-                # Encode code on-the-fly (no grad in eval)
+            for batch_idx, (code_batch, vuln, cwe, cluster_type, languages) in enumerate(train_pbar, start=1):
+                
                 emb = model.encode_code(code_batch, device)
                 vuln, cluster_type = vuln.to(device), cluster_type.to(device)
                 cwe_cluster = torch.tensor(
@@ -948,74 +751,126 @@ def run_pipeline():
                     dtype=torch.long,
                     device=device
                 )
+                optimizer.zero_grad()
+
                 logits, frac_routed, prob_exp, router_logits = model(emb)
-                loss, _, _, _ = moe_multitask_loss(logits, vuln, router_logits, cwe_cluster,
-                                                    frac_routed, prob_exp, num_experts=num_experts,
-                                                    pos_weight=pos_weight, use_focal=True,
-                                                    label_smoothing=0.05,
-                                                    alpha=0.005, beta=0.2)
+                loss, bce, ce, aux = moe_multitask_loss(logits, vuln, router_logits, cwe_cluster,
+                                                        frac_routed, prob_exp, num_experts=num_experts, 
+                                                        pos_weight=pos_weight, use_focal=False,
+                                                        label_smoothing=0.05,
+                                                        alpha=0.005, beta=0.2)
 
-                val_loss += loss.item()
-                val_acc += calculate_accuracy(logits, vuln).item()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
 
-        avg_train_loss = train_loss / len(train_loader)
-        avg_train_acc = train_acc / len(train_loader)
-        avg_val_loss = val_loss / len(val_loader)
-        avg_val_acc = val_acc / len(val_loader)
-        
-        # Calculate validation F1 for better model selection (like baseline)
-        model.eval()
-        val_preds_all = []
-        val_labels_all = []
-        with torch.no_grad():
-            for code_batch, vuln, cwe, cluster_type, languages in val_loader:
-                emb = model.encode_code(code_batch, device)
-                logits, _, _, _ = model(emb)
-                probs = torch.sigmoid(logits)
-                preds = (probs > 0.5).float()
-                val_preds_all.extend(preds.cpu().numpy().flatten())
-                val_labels_all.extend(vuln.numpy().flatten())
-        
-        val_preds_tensor = torch.tensor(val_preds_all)
-        val_labels_tensor = torch.tensor(val_labels_all)
-        val_f1, val_precision, val_recall = calculate_f1_score(val_preds_tensor, val_labels_tensor)
-        
-        # Learning Rate Schedule
-        scheduler.step()
-        current_lr = optimizer.param_groups[0]['lr']
-        
-        print(f"Epoch {epoch+1:3d}/{epochs} | LR: {current_lr:.6f} | "
-              f"Train Loss: {avg_train_loss:.4f} Acc: {avg_train_acc:.4f} | "
-              f"Val Loss: {avg_val_loss:.4f} Acc: {avg_val_acc:.4f} F1: {val_f1:.4f}")
-        
-        # Select monitoring metric for best checkpoint and early stopping
-        monitor_value = val_f1 if F1_BEST_STATE else avg_val_acc
+                train_loss += loss.item()
+                train_bce += bce.item()
+                train_ce += ce.item()
+                train_aux += aux.item()
+                batch_acc = calculate_accuracy(logits, vuln).item()
+                train_acc += batch_acc
 
-        if monitor_value > best_monitor_value:
-            best_monitor_value = monitor_value
-            best_val_f1 = val_f1
-            best_val_acc = avg_val_acc
-            best_val_loss = avg_val_loss
-            patience_counter = 0
-            best_model_state = copy.deepcopy(model.state_dict())
-            print(
-                f"  ✓ New best {monitor_name}: {monitor_value:.4f} "
-                f"(Val F1: {val_f1:.4f}, Val Acc: {avg_val_acc:.4f}, "
-                f"Precision: {val_precision:.4f}, Recall: {val_recall:.4f})"
-            )
-        else:
-            patience_counter += 1
-            if patience_counter >= patience:
+                train_pbar.set_postfix({
+                    "loss": f"{train_loss / batch_idx:.4f}",
+                    "acc": f"{train_acc / batch_idx:.4f}",
+                })
+
+                # Heartbeat log
+                if batch_idx % 50 == 0:
+                    print(
+                        f"Epoch {epoch+1}/{epochs} - batch {batch_idx}/{len(train_loader)} "
+                        f"| loss={train_loss / batch_idx:.4f} | acc={train_acc / batch_idx:.4f}"
+                    )
+
+            # VALIDATION
+            model.eval()
+            val_loss, val_acc = 0.0, 0.0
+            
+            with torch.no_grad():
+                for code_batch, vuln, cwe, cluster_type, languages in val_loader:
+                    # Encode code on-the-fly (no grad in eval)
+                    emb = model.encode_code(code_batch, device)
+                    vuln, cluster_type = vuln.to(device), cluster_type.to(device)
+                    cwe_cluster = torch.tensor(
+                        [cwe_to_cluster[int(c.item())] for c in cluster_type],
+                        dtype=torch.long,
+                        device=device
+                    )
+                    logits, frac_routed, prob_exp, router_logits = model(emb)
+                    loss, _, _, _ = moe_multitask_loss(logits, vuln, router_logits, cwe_cluster,
+                                                        frac_routed, prob_exp, num_experts=num_experts,
+                                                        pos_weight=pos_weight, use_focal=False,
+                                                        label_smoothing=0.05,
+                                                        alpha=0.005, beta=0.2)
+
+                    val_loss += loss.item()
+                    val_acc += calculate_accuracy(logits, vuln).item()
+
+            avg_train_loss = train_loss / len(train_loader)
+            avg_train_acc = train_acc / len(train_loader)
+            avg_val_loss = val_loss / len(val_loader)
+            avg_val_acc = val_acc / len(val_loader)
+            
+            # Calculate validation F1 for better model selection (like baseline)
+            model.eval()
+            val_preds_all = []
+            val_labels_all = []
+            with torch.no_grad():
+                for code_batch, vuln, cwe, cluster_type, languages in val_loader:
+                    emb = model.encode_code(code_batch, device)
+                    logits, _, _, _ = model(emb)
+                    probs = torch.sigmoid(logits)
+                    preds = (probs > 0.5).float()
+                    val_preds_all.extend(preds.cpu().numpy().flatten())
+                    val_labels_all.extend(vuln.numpy().flatten())
+            
+            val_preds_tensor = torch.tensor(val_preds_all)
+            val_labels_tensor = torch.tensor(val_labels_all)
+            val_f1, val_precision, val_recall = calculate_f1_score(val_preds_tensor, val_labels_tensor)
+            
+            # Learning Rate Schedule
+            scheduler.step()
+            current_lr = optimizer.param_groups[0]['lr']
+            
+            print(f"Epoch {epoch+1:3d}/{epochs} | LR: {current_lr:.6f} | "
+                f"Train Loss: {avg_train_loss:.4f} Acc: {avg_train_acc:.4f} | "
+                f"Val Loss: {avg_val_loss:.4f} Acc: {avg_val_acc:.4f} F1: {val_f1:.4f}")
+            
+            # Select monitoring metric for best checkpoint and early stopping
+            monitor_value = val_f1 if F1_BEST_STATE else avg_val_acc
+
+            if monitor_value > best_monitor_value:
+                best_monitor_value = monitor_value
+                best_val_f1 = val_f1
+                best_val_acc = avg_val_acc
+                best_val_loss = avg_val_loss
+                patience_counter = 0
+                best_model_state = copy.deepcopy(model.state_dict())
+                os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
+                model_save_path = os.path.join(MODEL_SAVE_DIR, f"best_model_epoch_{epoch+1}.pt")
+                torch.save(best_model_state, model_save_path)
                 print(
-                    f"\nEarly stopping triggered! Best Val {monitor_name}: {best_monitor_value:.4f}, "
-                    f"F1: {best_val_f1:.4f}, Acc: {best_val_acc:.4f}, Loss: {best_val_loss:.4f}"
+                    f"  New best {monitor_name}: {monitor_value:.4f} "
+                    f"(Val F1: {val_f1:.4f}, Val Acc: {avg_val_acc:.4f}, "
+                    f"Precision: {val_precision:.4f}, Recall: {val_recall:.4f})"
                 )
-                model.load_state_dict(best_model_state)
-                break
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    print(
+                        f"\nEarly stopping triggered! Best Val {monitor_name}: {best_monitor_value:.4f}, "
+                        f"F1: {best_val_f1:.4f}, Acc: {best_val_acc:.4f}, Loss: {best_val_loss:.4f}"
+                    )
+                    model.load_state_dict(best_model_state)
+                    break
     
     # Load best model
-    if best_model_state is not None:
-        model.load_state_dict(best_model_state)
+        if best_model_state is not None:
+            torch.save(best_model_state, os.path.join(MODEL_SAVE_DIR, f"final_best_model.pt"))
+    
+
+    model.load_state_dict(torch.load(os.path.join(MODEL_SAVE_DIR, f"final_best_model.pt")))
     
     # Find optimal threshold on validation set
     print("\n" + "="*60)
@@ -1024,7 +879,7 @@ def run_pipeline():
     optimal_threshold, metrics = find_optimal_threshold(model, val_loader, device)
     print("="*60)
 
-    # --- TEST LOOP ---
+    # TEST 
     print("\n" + "="*60)
     print("ĐÁNH GIÁ TRÊN TẬP KIỂM THỬ (TEST SET)")
     print("="*60)
@@ -1141,7 +996,7 @@ def run_pipeline():
                 "is_correct": int(test_predictions[i]) == int(test_labels[i])
             }
             f.write(json.dumps(pred_data) + "\n")
-    print(f"✓ Test predictions saved to {pred_file}")
+    print(f"Test predictions saved to {pred_file}")
     
     # Save summary report
     report_file = results_dir / f"test_report_{timestamp}.txt"
@@ -1160,7 +1015,7 @@ def run_pipeline():
             f.write(f"{i:<5} {int(test_predictions[i]):<6} {int(test_labels[i]):<6} "
                    f"{test_probabilities[i]:<10.4f} {int(test_cwe_labels[i]):<5} {str(test_language_labels[i]):<10} {is_correct:<5}\n")
     
-    print(f"✓ Report saved to {report_file}\n")
+    print(f"Report saved to {report_file}\n")
     
     # Print sample predictions
     print("Sample Test Predictions (first 10):")
@@ -1190,9 +1045,9 @@ def run_pipeline():
     print("-"*80)
     
     if f1_optimal > f1_default:
-        print(f"✓ Optimal threshold IMPROVES F1 by {f1_diff:+.2f}%")
+        print(f"Optimal threshold IMPROVES F1 by {f1_diff:+.2f}%")
     elif f1_optimal < f1_default:
-        print(f"✗ Optimal threshold DEGRADES F1 by {f1_diff:.2f}% (using default 0.5 is better)")
+        print(f"Optimal threshold DEGRADES F1 by {f1_diff:.2f}% (using default 0.5 is better)")
     else:
         print(f"= Optimal threshold has SAME F1 as default")
     print("="*80)
@@ -1244,9 +1099,9 @@ def run_pipeline():
     
     print("="*80)
     
-    # --- PER-CWE EVALUATION ---
+    # PER-CWE EVALUATION
     print("\n" + "="*60)
-    print("ĐÁNH GIÁ THEO TỪNG CWE ID (with optimal threshold)")
+    print("PER-CWE EVALUATION (with optimal threshold)")
     print("="*60)
     cwe_metrics = evaluate_by_cwe(model, test_loader, device, threshold=optimal_threshold)
     
@@ -1346,9 +1201,9 @@ def run_pipeline():
         f.write(f"{'F1 Score':<20} {f1_default*100:<19.2f}% {f1_optimal*100:<19.2f}% {f1_diff:+.2f}%\n")
         f.write("-"*70 + "\n")
         if f1_optimal > f1_default:
-            f.write(f"✓ Optimal threshold IMPROVES F1 by {f1_diff:+.2f}%\n")
+            f.write(f"Optimal threshold IMPROVES F1 by {f1_diff:+.2f}%\n")
         elif f1_optimal < f1_default:
-            f.write(f"✗ Optimal threshold DEGRADES F1 by {f1_diff:.2f}% (default is better)\n")
+            f.write(f"Optimal threshold DEGRADES F1 by {f1_diff:.2f}% (default is better)\n")
         else:
             f.write(f"= Optimal threshold has SAME F1 as default\n")
         
@@ -1402,13 +1257,10 @@ def run_pipeline():
                f"{language_cwe_overall['recall']*100:<11.2f}% {language_cwe_overall['f1']*100:<11.2f}% {language_cwe_overall['total']:<10}\n")
         
         f.write("\n" + "="*70 + "\n")
-        f.write("TRAINING COMPLETED SUCCESSFULLY\n")
+        f.write("COMPLETED SUCCESSFULLY\n")
         f.write("="*70 + "\n")
     
-    print(f"✓ Final report saved to {final_report_file}")
-    print("\n" + "="*60)
-    print("Quy trình huấn luyện hoàn tất thành công!")
-    print("="*60)
+    print(f" Final report saved to {final_report_file}")
     print(f"Log file: {log_file}")
     print(f"Results directory: {results_dir}")
     print("="*60)

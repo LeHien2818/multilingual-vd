@@ -6,8 +6,8 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 from torch.optim import AdamW
 from sklearn.metrics import f1_score
-from model import MVDModel
-from log import setup_logging, get_logger
+from mvd.model import MVDModel
+from mvd.log import setup_logging, get_logger
 from tqdm import tqdm
 
 class CodeDataset(Dataset):

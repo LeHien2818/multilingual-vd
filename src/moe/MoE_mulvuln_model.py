@@ -188,7 +188,7 @@ class MoE_VulnerabilityDetector(nn.Module):
             else:
                 self.experts.append(CWE_Expert(input_dim=input_dim, hidden_dim=hidden_dim, dropout_rate=dropout_rate))
 
-    def _apply_special_routing(self, routing_weights, languages=None, vuln_labels=None, cwe_labels=None, cwe_dpy_set=None):
+    def _apply_data_routing(self, routing_weights, languages=None, vuln_labels=None, cwe_labels=None, cwe_dpy_set=None):
         if languages is None:
             return routing_weights
 
@@ -212,6 +212,9 @@ class MoE_VulnerabilityDetector(nn.Module):
                     updated_weights[i].zero_()
                     updated_weights[i, self.expert_ccpp_idx] = 0.5
                     updated_weights[i, self.expert_vulpy_idx] = 0.5
+                else:
+                    updated_weights[i].zero_()
+                    updated_weights[i, self.expert_ccpp_idx] = 1.0
 
         return updated_weights
 
@@ -264,12 +267,12 @@ class MoE_VulnerabilityDetector(nn.Module):
         return embeddings, inputs['input_ids'], attention_mask
 
     def forward(self, x, languages=None, vuln_labels=None, cwe_labels=None, cwe_dpy_set=None,
-                apply_special_routing=False, raw_input_ids=None, raw_attention_mask=None):
+                apply_data_routing=False, raw_input_ids=None, raw_attention_mask=None):
         x = self.input_norm(x)
         
-        routing_weights, top_k_indices, router_logits = self.router(x)
-        if apply_special_routing:
-            routing_weights = self._apply_special_routing(
+        routing_weights, _, router_logits = self.router(x)
+        if apply_data_routing:
+            routing_weights = self._apply_data_routing(
                 routing_weights,
                 languages=languages,
                 vuln_labels=vuln_labels,
@@ -294,7 +297,7 @@ class MoE_VulnerabilityDetector(nn.Module):
                 expert_inputs = x[expert_mask]
                 # weights = routing_weights[expert_mask, i].unsqueeze(1)
                 
-                # Special handling for VulPy expert with MulVulAssistant
+                # Handling for MulVulAssistant
                 if i == self.expert_vulpy_idx and isinstance(expert, MulVulAssistant):
                     lang_ids = None
                     if languages is not None:
