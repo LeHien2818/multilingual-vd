@@ -1093,7 +1093,7 @@ def run_pipeline():
 
     #  TEST
     print("\n" + "="*60)
-    print("EVALUATION ON TEST SET)")
+    print("EVALUATING TEST SET")
     print("="*60)
     model.eval()
     

@@ -1,0 +1,17 @@
+MoE Inference Result Summary - Routed Expert 1
+============================================================
+routed_samples: 152
+macro f1: 0.759789
+macro precision: 0.772464
+accuracy: 0.763158
+macro recall: 0.760568
+
+Classification report
+              precision    recall  f1-score   support
+
+           0   0.728261  0.858974  0.788235        78
+           1   0.816667  0.662162  0.731343        74
+
+    accuracy                       0.763158       152
+   macro avg   0.772464  0.760568  0.759789       152
+weighted avg   0.771301  0.763158  0.760538       152

@@ -1,0 +1,21 @@
+{
+  "raw_num_classes": 2,
+  "num_experts": 4,
+  "min_samples_threshold": 20,
+  "cluster_loads": [
+    33300,
+    760,
+    0,
+    0
+  ],
+  "cwe_to_cluster": {
+    "0": 0,
+    "1": 1
+  },
+  "cwe_frequency": {
+    "0": 33300,
+    "1": 760
+  },
+  "rare_cwes_merged": {},
+  "num_rare_cwes": 0
+}

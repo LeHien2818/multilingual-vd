@@ -871,17 +871,22 @@ def run_pipeline():
     
 
     model.load_state_dict(torch.load(os.path.join(MODEL_SAVE_DIR, f"final_best_model.pt")))
-    
-    # Find optimal threshold on validation set
-    print("\n" + "="*60)
-    print("Finding optimal classification threshold...")
-    print("="*60)
     optimal_threshold, metrics = find_optimal_threshold(model, val_loader, device)
-    print("="*60)
-
+    with open(f"{MODEL_SAVE_DIR}/optimal_threshold_metrics.json", "w") as f:
+        json.dump({
+            "optimal_threshold": optimal_threshold,
+            "metrics": metrics
+        }, f)
+    
     # TEST 
+    optimal_threshold = 0.5 
+    metrics = None
+    with open(f"{MODEL_SAVE_DIR}/optimal_threshold_metrics.json", "r") as f:
+        optimal_data = json.load(f)
+        optimal_threshold = optimal_data.get("optimal_threshold", 0.5)
+        metrics = optimal_data.get("metrics", None)
     print("\n" + "="*60)
-    print("ĐÁNH GIÁ TRÊN TẬP KIỂM THỬ (TEST SET)")
+    print("EVALUATING TEST SET")
     print("="*60)
     model.eval()
     
