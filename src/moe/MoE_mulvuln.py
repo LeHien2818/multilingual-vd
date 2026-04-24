@@ -234,10 +234,8 @@ def get_num_classes_cwe(data_list, label_field='cwe'):
     # For CrossEntropy, we need num_classes based only on positive indices
     if positive_cwes:
         max_cwe_index = max(positive_cwes)
-        min_positive_cwe = min(positive_cwes)
         num_classes = max_cwe_index + 1
     else:
-        min_positive_cwe = float('inf')
         num_classes = 0
 
     min_cwe_index = min(cwe_ids)
@@ -250,116 +248,31 @@ def get_num_classes_cwe(data_list, label_field='cwe'):
 
     return num_classes, sorted(list(cwe_ids)), negative_cwes
 
-def build_auto_cwe_clusters(data_list, target_experts=None, min_experts=4, max_experts=32, min_samples_threshold=20, label_field='cwe'):
-    """Automatically cluster label IDs into fewer balanced groups for router training.
-    Supports both positive CWE IDs and special negative CWE values (-1, -2, etc.).
+def build_clusters(data_list, min_experts=4, label_field='cluster_type'):
+    """Clustering label IDs into fewer balanced groups for router training.
 
     Args:
         data_list: full dataset containing labels for clustering
-        target_experts: target number of clusters (None = sqrt(num_unique))
         min_experts: minimum number of clusters to maintain
-        max_experts: maximum number of clusters
-        min_samples_threshold: CWEs with freq <= this are grouped into "rare" cluster
-        label_field: name of field used to build clusters (default: cwe)
+        label_field: name of field used to build clusters
     """
-    cwes = [int(item['cwe']) for item in data_list]
-    cwe_values = [int(item[label_field]) for item in data_list if label_field in item]
-    if not cwe_values:
+    lang_values = [int(item[label_field]) for item in data_list if label_field in item]
+    if not lang_values:
         raise ValueError(f"No values found in '{label_field}' for auto clustering")
 
-    cwe_counter = Counter(cwe_values)
+    lang_counter = Counter(lang_values)
 
-    # Separate positive and negative CWE IDs
-    positive_cwes = {cwe_id: freq for cwe_id, freq in cwe_counter.items() if cwe_id >= 0}
-    negative_cwes = {cwe_id: freq for cwe_id, freq in cwe_counter.items() if cwe_id < 0}
+    print(f"  Total unique Language classes: {len(lang_counter.keys())}")
 
-    unique_cwes = sorted(cwe_counter.keys())
-    num_unique = len(unique_cwes)
-    num_positive = len(positive_cwes)
-    num_negative = len(negative_cwes)
-
-    # For positive CWEs: Separate rare and frequent
-    rare_cwes = {cwe_id: freq for cwe_id, freq in positive_cwes.items() if freq <= min_samples_threshold}
-    frequent_cwes = {cwe_id: freq for cwe_id, freq in positive_cwes.items() if freq > min_samples_threshold}
-
-    num_rare = len(rare_cwes)
-    num_frequent = len(frequent_cwes)
-
-    print("\nAuto CWE clustering enabled")
-    print(f"  Total unique CWE classes: {num_unique}")
-    print(f"  Positive CWE IDs: {num_positive}")
-    print(f"  Negative CWE IDs (special): {num_negative} {sorted(list(negative_cwes.keys()))}")
-    print(f"  Positive CWEs with > {min_samples_threshold} samples: {num_frequent}")
-    print(f"  Positive CWEs with <= {min_samples_threshold} samples (will be merged): {num_rare}")
-
-    # Determine target experts for frequent CWEs only
-    if target_experts is None:
-        # Scale experts by sqrt of frequent classes (not rare)
-        target_experts = max(1, int(round(np.sqrt(num_frequent)))) if num_frequent > 0 else 1
-
-    # Always keep at least `min_experts` total clusters so MoE does not collapse
-    frequent_target = int(target_experts)
-    num_special_clusters = (1 if num_rare > 0 else 0) + (1 if num_negative > 0 else 0)
-
-    if num_special_clusters > 0:
-        frequent_target = max(1, frequent_target)
-        frequent_target = max(min_experts - num_special_clusters, frequent_target)
-    else:
-        frequent_target = max(min_experts, frequent_target)
-
-    frequent_target = min(max_experts - num_special_clusters, frequent_target)
-    frequent_target = max(1, frequent_target)
-    num_experts = frequent_target + num_special_clusters
-
-    # Assign positive CWEs to clusters with load balancing
+    num_experts = min_experts
     cluster_loads = [0 for _ in range(num_experts)]
 
-    cwe_to_cluster = {}
+    lang_to_cluster = {}
+    for lang_id, count in lang_counter.items():
+        lang_to_cluster[lang_id] = lang_id
+        cluster_loads[lang_id] += count
 
-    sorted_by_freq = sorted(frequent_cwes.items(), key=lambda x: x[1], reverse=True)
-    rare_cluster_idx = -1
-    negative_cluster_idx = -1
-
-    if num_negative > 0:
-        negative_cluster_idx = num_experts - 1
-    if num_rare > 0:
-        rare_cluster_idx = num_experts - 1 if num_negative == 0 else num_experts - 2
-
-    # Assign frequent positive CWEs first
-    num_assignment_clusters = num_experts - num_special_clusters
-    for cwe_id, freq in sorted_by_freq:
-        # Find cluster with minimum load (excluding special clusters)
-        best_cluster = min(
-            range(num_assignment_clusters),
-            key=lambda idx: cluster_loads[idx]
-        )
-        cwe_to_cluster[cwe_id] = best_cluster
-        cluster_loads[best_cluster] += freq
-
-    # Assign all rare positive CWEs to rare cluster
-    if num_rare > 0:
-        rare_cluster_total = 0
-        for cwe_id, freq in rare_cwes.items():
-            cwe_to_cluster[cwe_id] = rare_cluster_idx
-            rare_cluster_total += freq
-        cluster_loads[rare_cluster_idx] = rare_cluster_total
-
-    # Assign all negative CWEs to negative cluster
-    if num_negative > 0:
-        negative_cluster_total = 0
-        for cwe_id, freq in negative_cwes.items():
-            cwe_to_cluster[cwe_id] = negative_cluster_idx
-            negative_cluster_total += freq
-        cluster_loads[negative_cluster_idx] = negative_cluster_total
-
-    print(f"  Router experts/clusters: {num_experts}")
-    print(f"  Cluster loads (samples): {cluster_loads}")
-    if num_rare > 0:
-        print(f"  Rare cluster (idx {rare_cluster_idx}): {num_rare} CWE types, {cluster_loads[rare_cluster_idx]} samples")
-    if num_negative > 0:
-        print(f"  Negative CWE cluster (idx {negative_cluster_idx}): {num_negative} CWE types {sorted(list(negative_cwes.keys()))}, {cluster_loads[negative_cluster_idx]} samples")
-
-    return num_experts, cwe_to_cluster, cwe_counter, cluster_loads
+    return num_experts, lang_to_cluster, lang_counter, cluster_loads
 
 
 
@@ -691,19 +604,12 @@ def get_language_label(item):
     return language if language else "Unknown"
 
 
-def remap_type_index(train_data, val_data, test_data, enable_lang_cluster=False):
+def remap_type_index(train_data, val_data, test_data):
     """Build per-item cluster_type used for router clustering.
 
-    If LANG_CLUSTER is False: cluster_type = cwe.
-    If LANG_CLUSTER is True:  cluster_type = language_to_index[language].
+    cluster_type = language_to_index[language].
     """
     all_data = train_data + val_data + test_data
-
-    if not enable_lang_cluster:
-        for item in all_data:
-            item["cluster_type"] = int(item["cwe"])
-        print("LANG_CLUSTER=False -> cluster_type is copied from cwe")
-        return train_data, val_data, test_data, None
 
     languages = sorted({get_language_label(item) for item in all_data})
     language_to_index = {language: idx for idx, language in enumerate(languages)}
@@ -712,7 +618,7 @@ def remap_type_index(train_data, val_data, test_data, enable_lang_cluster=False)
         language = get_language_label(item)
         item["cluster_type"] = language_to_index[language]
 
-    print("LANG_CLUSTER=True -> cluster_type is remapped from language index")
+    print("cluster_type is remapped from language index")
     print(f"  Unique languages: {len(languages)}")
     print(f"  Language to index map: {language_to_index}")
 
@@ -758,8 +664,7 @@ def run_pipeline():
     train_data, val_data, test_data, _ = remap_type_index(
         train_data,
         val_data,
-        test_data,
-        enable_lang_cluster=LANG_CLUSTER,
+        test_data
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -776,12 +681,9 @@ def run_pipeline():
     print("\nAnalyzing cluster_type distribution...")
     all_data_for_cwe = train_data + val_data + test_data
     raw_num_classes, _, _ = get_num_classes_cwe(all_data_for_cwe, label_field='cluster_type')
-    num_experts, cwe_to_cluster, cwe_counter, cluster_loads = build_auto_cwe_clusters(
+    num_experts, lang_to_cluster, lang_counter, cluster_loads = build_clusters(
         all_data_for_cwe,
-        target_experts=None,
         min_experts=4,
-        max_experts=32,
-        min_samples_threshold=20,  # Merge low-frequency labels into rare cluster
         label_field='cluster_type'
     )
     num_experts = max(num_experts, 3)
@@ -807,37 +709,12 @@ def run_pipeline():
     
     min_cwe = min(all_cwes)
     max_cwe = max(all_cwes)
-    
-    # Validate positive CWEs are in valid range
-    invalid_positive_cwes = [c for c in positive_cwes if c >= raw_num_classes] if raw_num_classes > 0 else []
-    # Negative CWEs are always valid (special values)
-    missing_mapping_cwes = sorted(set(c for c in all_cwes if c not in cwe_to_cluster))
-    all_cluster_labels = [cwe_to_cluster[c] for c in all_cwes if c in cwe_to_cluster]
-    invalid_cluster_labels = [cl for cl in all_cluster_labels if cl < 0 or cl >= num_experts]
-    
+            
     print(f"  CWE range in data: [{min_cwe}, {max_cwe}]")
     print(f"  Positive CWE range: [0, {max(positive_cwes) if positive_cwes else 'N/A'}]")
     print(f"  Raw CWE range required: [0, {raw_num_classes-1}] (positive only)")
     print(f"  Negative CWE values (special): {sorted(list(negative_cwes_in_data))}")
-    print(f"  Cluster label range required: [0, {num_experts-1}]")
-    print(f"  Invalid positive CWEs found: {len(invalid_positive_cwes)}")
-    print(f"  Missing cluster mappings: {len(missing_mapping_cwes)}")
-    print(f"  Invalid cluster labels found: {len(invalid_cluster_labels)}")
-    
-    if invalid_positive_cwes:
-        print(f"    ERROR: Found {len(invalid_positive_cwes)} positive CWE values outside valid range!")
-        print(f"    Invalid CWE IDs: {sorted(set(invalid_positive_cwes))}")
-        raise ValueError(f"Positive CWE indices must be in [0, {raw_num_classes}). Found invalid: {invalid_positive_cwes}")
-
-    if missing_mapping_cwes:
-        print(f"    ERROR: Missing cluster mapping for {len(missing_mapping_cwes)} CWE values!")
-        print(f"    Missing CWE IDs: {missing_mapping_cwes[:10]}")
-        raise ValueError("CWE-to-cluster mapping is incomplete")
-
-    if invalid_cluster_labels:
-        print(f"    ERROR: Found invalid cluster labels!")
-        print(f"    Sample invalid cluster labels: {sorted(set(invalid_cluster_labels))[:10]}")
-        raise ValueError(f"Cluster labels must be in [0, {num_experts})")
+    print(f"  Cluster label range required: [0, {num_experts-1}]")    
     
     print(f"    All CWE indices are valid (including {len(negative_cwes_in_data)} special negative CWE values)!")
     print("")
@@ -928,8 +805,8 @@ def run_pipeline():
                 
                 emb, input_ids, attention_mask = model.encode_code(code_batch, device)
                 vuln, cwe, cluster_type = vuln.to(device), cwe.to(device), cluster_type.to(device)
-                cwe_cluster = torch.tensor(
-                    [cwe_to_cluster[int(c.item())] for c in cluster_type],
+                lang_cluster = torch.tensor(
+                    [lang_to_cluster[int(c.item())] for c in cluster_type],
                     dtype=torch.long,
                     device=device
                 )
@@ -945,7 +822,7 @@ def run_pipeline():
                     raw_input_ids=input_ids,
                     raw_attention_mask=attention_mask,
                 )
-                loss, bce, ce, aux = moe_multitask_loss(logits, vuln, router_logits, cwe_cluster,
+                loss, bce, ce, aux = moe_multitask_loss(logits, vuln, router_logits, lang_cluster,
                                                         frac_routed, prob_exp, num_experts=num_experts, 
                                                         pos_weight=pos_weight, use_focal=True,
                                                         label_smoothing=0.05,
@@ -983,8 +860,8 @@ def run_pipeline():
                     
                     emb, input_ids, attention_mask = model.encode_code(code_batch, device)
                     vuln, cwe, cluster_type = vuln.to(device), cwe.to(device), cluster_type.to(device)
-                    cwe_cluster = torch.tensor(
-                        [cwe_to_cluster[int(c.item())] for c in cluster_type],
+                    lang_cluster = torch.tensor(
+                        [lang_to_cluster[int(c.item())] for c in cluster_type],
                         dtype=torch.long,
                         device=device
                     )
@@ -998,7 +875,7 @@ def run_pipeline():
                         raw_input_ids=input_ids,
                         raw_attention_mask=attention_mask,
                     )
-                    loss, _, _, _ = moe_multitask_loss(logits, vuln, router_logits, cwe_cluster,
+                    loss, _, _, _ = moe_multitask_loss(logits, vuln, router_logits, lang_cluster,
                                                         frac_routed, prob_exp, num_experts=num_experts,
                                                         pos_weight=pos_weight, use_focal=True,
                                                         label_smoothing=0.05,
@@ -1179,7 +1056,7 @@ def run_pipeline():
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
     debug_info_file = results_dir / f"test_debug_info_{timestamp}.csv"
-    cluster_map_file = results_dir / f"cwe_cluster_map_{timestamp}.json"
+    cluster_map_file = results_dir / f"lang_cluster_map_{timestamp}.json"
     
     debug_info = {
         "cluster_types": test_cluster_types,
@@ -1194,8 +1071,8 @@ def run_pipeline():
     print(f"Detailed test debug info saved to {debug_info_file}")
 
     # Identify rare CWEs
-    rare_cwes_info = {str(cwe_id): {"freq": int(freq), "cluster": int(cwe_to_cluster[cwe_id])} 
-                      for cwe_id, freq in cwe_counter.items() if freq <= 20}
+    rare_cwes_info = {str(cwe_id): {"freq": int(freq), "cluster": int(lang_to_cluster[cwe_id])} 
+                      for cwe_id, freq in lang_counter.items() if freq <= 20}
     
     
     with open(cluster_map_file, "w") as f:
@@ -1205,8 +1082,8 @@ def run_pipeline():
                 "num_experts": int(num_experts),
                 "min_samples_threshold": 20,
                 "cluster_loads": [int(x) for x in cluster_loads],
-                "cwe_to_cluster": {str(k): int(v) for k, v in sorted(cwe_to_cluster.items())},
-                "cwe_frequency": {str(k): int(v) for k, v in sorted(cwe_counter.items())},
+                "lang_to_cluster": {str(k): int(v) for k, v in sorted(lang_to_cluster.items())},
+                "cwe_frequency": {str(k): int(v) for k, v in sorted(lang_counter.items())},
                 "rare_cwes_merged": rare_cwes_info,
                 "num_rare_cwes": len(rare_cwes_info)
             },
@@ -1520,7 +1397,7 @@ def run_pipeline():
         f.write(f"Hidden dimension: 256\n")
         f.write(f"Number of experts: {num_experts}\n")
         f.write(f"Auto-clustering: enabled (min_samples_threshold=20)\n")
-        f.write(f"Rare cluster: {len(rare_cwes_info)} CWE types merged (total {sum(c for c_id, c in cwe_counter.items() if c <= 20)} samples)\n")
+        f.write(f"Rare cluster: {len(rare_cwes_info)} CWE types merged (total {sum(c for c_id, c in lang_counter.items() if c <= 20)} samples)\n")
         f.write(f"Top-k routing: 1\n")
         f.write(f"Dropout rate: 0.1\n")
         

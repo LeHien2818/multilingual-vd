@@ -1,315 +1,0 @@
-04/23/2026 17:34:45 - WARNING - __main__ -   device: cuda, n_gpu: 1
-Some weights of RobertaForSequenceClassification were not initialized from the model checkpoint at microsoft/codebert-base and are newly initialized: ['classifier.dense.bias', 'classifier.dense.weight', 'classifier.out_proj.bias', 'classifier.out_proj.weight']
-You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
-04/23/2026 17:34:47 - INFO - __main__ -   Training/evaluation parameters Namespace(train_data_file='/drive1/cuongtm/hienlt/moe/dataset/moe/pr_sv_no_comment/under/primevul_sven_train_nocmt_under.jsonl', output_dir='./saved_models_sv_python_1', eval_data_file='/drive1/cuongtm/hienlt/moe/dataset/moe/pr_sv_no_comment/under/primevul_sven_val_nocmt_under.jsonl', test_data_file='/drive1/cuongtm/hienlt/moe/dataset/moe/pr_sv_no_comment/nounder/primevul_sven_test_nocmt_nounder.jsonl', model_name_or_path='microsoft/codebert-base', tokenizer_name='microsoft/codebert-base', block_size=256, do_train=True, do_eval=False, do_test=True, train_batch_size=46, eval_batch_size=32, learning_rate=2e-05, weight_decay=0.0, adam_epsilon=1e-08, max_grad_norm=1.0, warmup_steps=0, seed=45, num_train_epochs=25, n_gpu=1, device=device(type='cuda'))
-04/23/2026 17:34:49 - INFO - __main__ -   *** Example ***
-04/23/2026 17:34:49 - INFO - __main__ -   label: 1
-04/23/2026 17:34:49 - INFO - __main__ -   input_tokens: ['<s>', '@', 'app', '.', 'route', "('", '/', 'summary', "',", '_methods', '=', "['", 'GET', "'", '])', '_def', '_summary', '():', '_if', "_'", 'username', "'", '_in', '_session', ':', '_conn', '_=', '_mysql', '.', 'connect', '()', '_cursor', '_=', '_conn', '.', 'c', 'ursor', '()', '_cursor', '.', 'execute', '("', 'SELECT', '_course', 'Con', 'cent', 'ration', '_FROM', '_results', '_WHERE', '_total', '_=', '_(', 'SELECT', '_MAX', '(', 'total', ')', '_FROM', '_(', 'SELECT', '_*', '_FROM', '_results', '_WHERE', '_course', 'Id', '_>', '_4', ')', '_Temp', ')', '_and', '_course', 'Id', '_>', '_4', '_and', '_email', 'Account', "='", '"', '_+', '_session', "['", 'username', "']", '_+', '_"\'', '");', '_course', 'Con', 'cent', 'ration', '_=', '_cursor', '.', 'f', 'etch', 'one', '()', '_return', '_render', '_', 'template', "('", 'summary', '.', 'html', "',", '_course', 'Con', 'cent', 'ration', '_=', '_course', 'Con', 'cent', 'ration', '[', '0', '])', '_return', '_redirect', '(', 'url', '_', 'for', "('", 'login', "'", '))', '</s>']
-04/23/2026 17:34:49 - INFO - __main__ -   input_ids: 0 1039 3340 4 37745 45803 73 48600 3934 6448 5214 48759 18760 108 45587 3816 4819 49536 114 128 48852 108 11 1852 35 39277 5457 48563 4 24501 43048 45483 5457 39277 4 438 47853 43048 45483 4 48592 46469 49179 768 9157 6342 8475 11974 775 29919 746 5457 36 49179 28066 1640 30033 43 11974 36 49179 1009 11974 775 29919 768 28081 8061 204 43 40239 43 8 768 28081 8061 204 8 1047 43767 47579 113 2055 1852 48759 48852 44403 2055 22896 45751 768 9157 6342 8475 5457 45483 4 506 29094 1264 43048 671 19930 1215 48790 45803 48600 4 6660 3934 768 9157 6342 8475 5457 768 9157 6342 8475 10975 288 45587 671 30970 1640 6423 1215 1990 45803 47828 108 35122 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
-04/23/2026 17:34:49 - INFO - __main__ -   *** Example ***
-04/23/2026 17:34:49 - INFO - __main__ -   label: 0
-04/23/2026 17:34:49 - INFO - __main__ -   input_tokens: ['<s>', 'def', '_add', '_', 'input', '(', 'self', ',', 'data', '):', '_connection', '_=', '_self', '.', 'connect', '()', '_try', ':', '_query', '_=', '_"', 'INS', 'ERT', '_INTO', '_crimes', '_(', 'description', ')', '_VAL', 'UES', '_(%', 's', ');', '"', '_with', '_connection', '.', 'c', 'ursor', '()', '_as', '_cursor', ':', '_cursor', '.', 'execute', '(', 'query', ',', 'data', ')', '_connection', '.', 'commit', '()', '_finally', ':', '_connection', '.', 'close', '()', '</s>']
-04/23/2026 17:34:49 - INFO - __main__ -   input_ids: 0 9232 1606 1215 46797 1640 13367 6 23687 3256 2748 5457 1403 4 24501 43048 860 35 25860 5457 22 15102 18854 42068 3474 36 42739 43 27445 8888 48086 29 4397 113 19 2748 4 438 47853 43048 25 45483 35 45483 4 48592 1640 48360 6 23687 43 2748 4 42721 43048 1747 35 2748 4 22641 43048 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
-04/23/2026 17:34:49 - INFO - __main__ -   *** Example ***
-04/23/2026 17:34:49 - INFO - __main__ -   label: 1
-04/23/2026 17:34:49 - INFO - __main__ -   input_tokens: ['<s>', 'def', '_all', '_', 'dep', 'os', 'its', '(', 'self', ',', 'coin', '):', '_sql', '_=', '_"', 'SELECT', '_*', '_FROM', '_deposits', '_WHERE', '_coin', "='", '%', 's', '\'"', '_%', '_coin', '_self', '.', 'c', 'ursor', '.', 'execute', '(', 'sql', ')', '_return', '_self', '.', 'c', 'ursor', '.', 'f', 'etch', 'all', '()', '</s>']
-04/23/2026 17:34:49 - INFO - __main__ -   input_ids: 0 9232 70 1215 17272 366 2629 1640 13367 6 16973 3256 49569 5457 22 49179 1009 11974 8874 29919 12911 47579 207 29 24464 7606 12911 1403 4 438 47853 4 48592 1640 49089 43 671 1403 4 438 47853 4 506 29094 1250 43048 2 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
-04/23/2026 17:34:49 - INFO - __main__ -   ***** Running training *****
-04/23/2026 17:34:49 - INFO - __main__ -     Num examples = 486
-04/23/2026 17:34:49 - INFO - __main__ -     Num Epochs = 25
-04/23/2026 17:34:49 - INFO - __main__ -     batch size = 46
-04/23/2026 17:34:49 - INFO - __main__ -     Total optimization steps = 275
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 0 loss 0.813:   0%|          | 0/11 [00:02<?, ?it/s]epoch 0 loss 0.785:   0%|          | 0/11 [00:02<?, ?it/s]epoch 0 loss 0.753:   0%|          | 0/11 [00:03<?, ?it/s]epoch 0 loss 0.74:   0%|          | 0/11 [00:04<?, ?it/s] epoch 0 loss 0.736:   0%|          | 0/11 [00:05<?, ?it/s]epoch 0 loss 0.736:  45%|████▌     | 5/11 [00:05<00:06,  1.07s/it]epoch 0 loss 0.729:  45%|████▌     | 5/11 [00:06<00:06,  1.07s/it]epoch 0 loss 0.726:  45%|████▌     | 5/11 [00:06<00:06,  1.07s/it]epoch 0 loss 0.722:  45%|████▌     | 5/11 [00:07<00:06,  1.07s/it]epoch 0 loss 0.722:  45%|████▌     | 5/11 [00:08<00:06,  1.07s/it]epoch 0 loss 0.718:  45%|████▌     | 5/11 [00:09<00:06,  1.07s/it]epoch 0 loss 0.715:  45%|████▌     | 5/11 [00:09<00:06,  1.07s/it]epoch 0 loss 0.715: 100%|██████████| 11/11 [00:09<00:00,  1.12it/s]
-04/23/2026 17:34:59 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:34:59 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:34:59 - INFO - __main__ -     Batch size = 32
-/home/tranmanhcuong/miniconda3/envs/py310/lib/python3.10/site-packages/sklearn/metrics/_classification.py:1731: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
-  _warn_prf(average, modifier, f"{metric.capitalize()} is", result.shape[0])
-04/23/2026 17:35:00 - INFO - __main__ -     eval_loss = 0.6893
-04/23/2026 17:35:00 - INFO - __main__ -     eval_acc = 0.5492
-04/23/2026 17:35:00 - INFO - __main__ -     eval_f1 = 0.3545
-04/23/2026 17:35:00 - INFO - __main__ -     eval_precision = 0.2746
-04/23/2026 17:35:00 - INFO - __main__ -     eval_recall = 0.5
-04/23/2026 17:35:00 - INFO - __main__ -     ********************
-04/23/2026 17:35:00 - INFO - __main__ -     Best F1:0.3545
-04/23/2026 17:35:00 - INFO - __main__ -     ********************
-04/23/2026 17:35:01 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 1 loss 0.706:   0%|          | 0/11 [00:00<?, ?it/s]epoch 1 loss 0.703:   0%|          | 0/11 [00:01<?, ?it/s]epoch 1 loss 0.696:   0%|          | 0/11 [00:02<?, ?it/s]epoch 1 loss 0.7:   0%|          | 0/11 [00:03<?, ?it/s]  epoch 1 loss 0.697:   0%|          | 0/11 [00:04<?, ?it/s]epoch 1 loss 0.694:   0%|          | 0/11 [00:04<?, ?it/s]epoch 1 loss 0.696:   0%|          | 0/11 [00:05<?, ?it/s]epoch 1 loss 0.696:  64%|██████▎   | 7/11 [00:05<00:03,  1.22it/s]epoch 1 loss 0.691:  64%|██████▎   | 7/11 [00:06<00:03,  1.22it/s]epoch 1 loss 0.693:  64%|██████▎   | 7/11 [00:07<00:03,  1.22it/s]epoch 1 loss 0.696:  64%|██████▎   | 7/11 [00:08<00:03,  1.22it/s]epoch 1 loss 0.691:  64%|██████▎   | 7/11 [00:08<00:03,  1.22it/s]epoch 1 loss 0.691: 100%|██████████| 11/11 [00:08<00:00,  1.27it/s]
-04/23/2026 17:35:10 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:35:10 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:35:10 - INFO - __main__ -     Batch size = 32
-/home/tranmanhcuong/miniconda3/envs/py310/lib/python3.10/site-packages/sklearn/metrics/_classification.py:1731: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
-  _warn_prf(average, modifier, f"{metric.capitalize()} is", result.shape[0])
-04/23/2026 17:35:11 - INFO - __main__ -     eval_loss = 0.7085
-04/23/2026 17:35:11 - INFO - __main__ -     eval_acc = 0.4508
-04/23/2026 17:35:11 - INFO - __main__ -     eval_f1 = 0.3107
-04/23/2026 17:35:11 - INFO - __main__ -     eval_precision = 0.2254
-04/23/2026 17:35:11 - INFO - __main__ -     eval_recall = 0.5
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 2 loss 0.732:   0%|          | 0/11 [00:00<?, ?it/s]epoch 2 loss 0.711:   0%|          | 0/11 [00:01<?, ?it/s]epoch 2 loss 0.705:   0%|          | 0/11 [00:02<?, ?it/s]epoch 2 loss 0.707:   0%|          | 0/11 [00:03<?, ?it/s]epoch 2 loss 0.706:   0%|          | 0/11 [00:04<?, ?it/s]epoch 2 loss 0.704:   0%|          | 0/11 [00:05<?, ?it/s]epoch 2 loss 0.704:  55%|█████▍    | 6/11 [00:05<00:04,  1.19it/s]epoch 2 loss 0.699:  55%|█████▍    | 6/11 [00:05<00:04,  1.19it/s]epoch 2 loss 0.7:  55%|█████▍    | 6/11 [00:06<00:04,  1.19it/s]  epoch 2 loss 0.7:  55%|█████▍    | 6/11 [00:07<00:04,  1.19it/s]epoch 2 loss 0.699:  55%|█████▍    | 6/11 [00:08<00:04,  1.19it/s]epoch 2 loss 0.699:  55%|█████▍    | 6/11 [00:08<00:04,  1.19it/s]epoch 2 loss 0.699: 100%|██████████| 11/11 [00:08<00:00,  1.25it/s]
-04/23/2026 17:35:20 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:35:20 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:35:20 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:35:21 - INFO - __main__ -     eval_loss = 0.6865
-04/23/2026 17:35:21 - INFO - __main__ -     eval_acc = 0.5738
-04/23/2026 17:35:21 - INFO - __main__ -     eval_f1 = 0.4254
-04/23/2026 17:35:21 - INFO - __main__ -     eval_precision = 0.6821
-04/23/2026 17:35:21 - INFO - __main__ -     eval_recall = 0.5289
-04/23/2026 17:35:21 - INFO - __main__ -     ********************
-04/23/2026 17:35:21 - INFO - __main__ -     Best F1:0.4254
-04/23/2026 17:35:21 - INFO - __main__ -     ********************
-04/23/2026 17:35:22 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 3 loss 0.71:   0%|          | 0/11 [00:00<?, ?it/s]epoch 3 loss 0.692:   0%|          | 0/11 [00:01<?, ?it/s]epoch 3 loss 0.689:   0%|          | 0/11 [00:02<?, ?it/s]epoch 3 loss 0.682:   0%|          | 0/11 [00:03<?, ?it/s]epoch 3 loss 0.681:   0%|          | 0/11 [00:04<?, ?it/s]epoch 3 loss 0.68:   0%|          | 0/11 [00:05<?, ?it/s] epoch 3 loss 0.68:  55%|█████▍    | 6/11 [00:05<00:04,  1.19it/s]epoch 3 loss 0.678:  55%|█████▍    | 6/11 [00:05<00:04,  1.19it/s]epoch 3 loss 0.681:  55%|█████▍    | 6/11 [00:06<00:04,  1.19it/s]epoch 3 loss 0.68:  55%|█████▍    | 6/11 [00:07<00:04,  1.19it/s] epoch 3 loss 0.68:  55%|█████▍    | 6/11 [00:08<00:04,  1.19it/s]epoch 3 loss 0.678:  55%|█████▍    | 6/11 [00:08<00:04,  1.19it/s]epoch 3 loss 0.678: 100%|██████████| 11/11 [00:08<00:00,  1.24it/s]
-04/23/2026 17:35:31 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:35:31 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:35:31 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:35:32 - INFO - __main__ -     eval_loss = 0.6971
-04/23/2026 17:35:32 - INFO - __main__ -     eval_acc = 0.4836
-04/23/2026 17:35:32 - INFO - __main__ -     eval_f1 = 0.4678
-04/23/2026 17:35:32 - INFO - __main__ -     eval_precision = 0.5067
-04/23/2026 17:35:32 - INFO - __main__ -     eval_recall = 0.5054
-04/23/2026 17:35:32 - INFO - __main__ -     ********************
-04/23/2026 17:35:32 - INFO - __main__ -     Best F1:0.4678
-04/23/2026 17:35:32 - INFO - __main__ -     ********************
-04/23/2026 17:35:33 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 4 loss 0.666:   0%|          | 0/11 [00:00<?, ?it/s]epoch 4 loss 0.672:   0%|          | 0/11 [00:01<?, ?it/s]epoch 4 loss 0.679:   0%|          | 0/11 [00:02<?, ?it/s]epoch 4 loss 0.68:   0%|          | 0/11 [00:03<?, ?it/s] epoch 4 loss 0.677:   0%|          | 0/11 [00:04<?, ?it/s]epoch 4 loss 0.671:   0%|          | 0/11 [00:05<?, ?it/s]epoch 4 loss 0.671:  55%|█████▍    | 6/11 [00:05<00:04,  1.17it/s]epoch 4 loss 0.67:  55%|█████▍    | 6/11 [00:05<00:04,  1.17it/s] epoch 4 loss 0.671:  55%|█████▍    | 6/11 [00:06<00:04,  1.17it/s]epoch 4 loss 0.67:  55%|█████▍    | 6/11 [00:07<00:04,  1.17it/s] epoch 4 loss 0.671:  55%|█████▍    | 6/11 [00:08<00:04,  1.17it/s]epoch 4 loss 0.666:  55%|█████▍    | 6/11 [00:08<00:04,  1.17it/s]epoch 4 loss 0.666: 100%|██████████| 11/11 [00:09<00:00,  1.22it/s]
-04/23/2026 17:35:43 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:35:43 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:35:43 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:35:44 - INFO - __main__ -     eval_loss = 0.6765
-04/23/2026 17:35:44 - INFO - __main__ -     eval_acc = 0.5656
-04/23/2026 17:35:44 - INFO - __main__ -     eval_f1 = 0.5589
-04/23/2026 17:35:44 - INFO - __main__ -     eval_precision = 0.5596
-04/23/2026 17:35:44 - INFO - __main__ -     eval_recall = 0.5589
-04/23/2026 17:35:44 - INFO - __main__ -     ********************
-04/23/2026 17:35:44 - INFO - __main__ -     Best F1:0.5589
-04/23/2026 17:35:44 - INFO - __main__ -     ********************
-04/23/2026 17:35:45 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 5 loss 0.694:   0%|          | 0/11 [00:00<?, ?it/s]epoch 5 loss 0.661:   0%|          | 0/11 [00:01<?, ?it/s]epoch 5 loss 0.656:   0%|          | 0/11 [00:02<?, ?it/s]epoch 5 loss 0.659:   0%|          | 0/11 [00:03<?, ?it/s]epoch 5 loss 0.646:   0%|          | 0/11 [00:04<?, ?it/s]epoch 5 loss 0.628:   0%|          | 0/11 [00:05<?, ?it/s]epoch 5 loss 0.628:  55%|█████▍    | 6/11 [00:05<00:04,  1.16it/s]epoch 5 loss 0.625:  55%|█████▍    | 6/11 [00:06<00:04,  1.16it/s]epoch 5 loss 0.624:  55%|█████▍    | 6/11 [00:06<00:04,  1.16it/s]epoch 5 loss 0.62:  55%|█████▍    | 6/11 [00:07<00:04,  1.16it/s] epoch 5 loss 0.617:  55%|█████▍    | 6/11 [00:08<00:04,  1.16it/s]epoch 5 loss 0.61:  55%|█████▍    | 6/11 [00:09<00:04,  1.16it/s] epoch 5 loss 0.61: 100%|██████████| 11/11 [00:09<00:00,  1.20it/s]
-04/23/2026 17:35:54 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:35:54 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:35:54 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:35:55 - INFO - __main__ -     eval_loss = 0.6311
-04/23/2026 17:35:55 - INFO - __main__ -     eval_acc = 0.6393
-04/23/2026 17:35:55 - INFO - __main__ -     eval_f1 = 0.6294
-04/23/2026 17:35:55 - INFO - __main__ -     eval_precision = 0.6352
-04/23/2026 17:35:55 - INFO - __main__ -     eval_recall = 0.6293
-04/23/2026 17:35:55 - INFO - __main__ -     ********************
-04/23/2026 17:35:55 - INFO - __main__ -     Best F1:0.6294
-04/23/2026 17:35:55 - INFO - __main__ -     ********************
-04/23/2026 17:35:57 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 6 loss 0.547:   0%|          | 0/11 [00:00<?, ?it/s]epoch 6 loss 0.558:   0%|          | 0/11 [00:01<?, ?it/s]epoch 6 loss 0.535:   0%|          | 0/11 [00:02<?, ?it/s]epoch 6 loss 0.532:   0%|          | 0/11 [00:03<?, ?it/s]epoch 6 loss 0.53:   0%|          | 0/11 [00:04<?, ?it/s] epoch 6 loss 0.519:   0%|          | 0/11 [00:05<?, ?it/s]epoch 6 loss 0.519:  55%|█████▍    | 6/11 [00:05<00:04,  1.14it/s]epoch 6 loss 0.511:  55%|█████▍    | 6/11 [00:06<00:04,  1.14it/s]epoch 6 loss 0.501:  55%|█████▍    | 6/11 [00:06<00:04,  1.14it/s]epoch 6 loss 0.487:  55%|█████▍    | 6/11 [00:07<00:04,  1.14it/s]epoch 6 loss 0.489:  55%|█████▍    | 6/11 [00:08<00:04,  1.14it/s]epoch 6 loss 0.479:  55%|█████▍    | 6/11 [00:09<00:04,  1.14it/s]epoch 6 loss 0.479: 100%|██████████| 11/11 [00:09<00:00,  1.19it/s]
-04/23/2026 17:36:06 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:36:06 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:36:06 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:36:07 - INFO - __main__ -     eval_loss = 0.6498
-04/23/2026 17:36:07 - INFO - __main__ -     eval_acc = 0.6639
-04/23/2026 17:36:07 - INFO - __main__ -     eval_f1 = 0.6634
-04/23/2026 17:36:07 - INFO - __main__ -     eval_precision = 0.6648
-04/23/2026 17:36:07 - INFO - __main__ -     eval_recall = 0.6664
-04/23/2026 17:36:07 - INFO - __main__ -     ********************
-04/23/2026 17:36:07 - INFO - __main__ -     Best F1:0.6634
-04/23/2026 17:36:07 - INFO - __main__ -     ********************
-04/23/2026 17:36:08 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 7 loss 0.516:   0%|          | 0/11 [00:00<?, ?it/s]epoch 7 loss 0.483:   0%|          | 0/11 [00:01<?, ?it/s]epoch 7 loss 0.451:   0%|          | 0/11 [00:02<?, ?it/s]epoch 7 loss 0.445:   0%|          | 0/11 [00:03<?, ?it/s]epoch 7 loss 0.423:   0%|          | 0/11 [00:04<?, ?it/s]epoch 7 loss 0.405:   0%|          | 0/11 [00:05<?, ?it/s]epoch 7 loss 0.405:  55%|█████▍    | 6/11 [00:05<00:04,  1.14it/s]epoch 7 loss 0.388:  55%|█████▍    | 6/11 [00:06<00:04,  1.14it/s]epoch 7 loss 0.381:  55%|█████▍    | 6/11 [00:06<00:04,  1.14it/s]epoch 7 loss 0.376:  55%|█████▍    | 6/11 [00:07<00:04,  1.14it/s]epoch 7 loss 0.367:  55%|█████▍    | 6/11 [00:08<00:04,  1.14it/s]epoch 7 loss 0.378:  55%|█████▍    | 6/11 [00:09<00:04,  1.14it/s]epoch 7 loss 0.378: 100%|██████████| 11/11 [00:09<00:00,  1.18it/s]
-04/23/2026 17:36:18 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:36:18 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:36:18 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:36:19 - INFO - __main__ -     eval_loss = 0.6647
-04/23/2026 17:36:19 - INFO - __main__ -     eval_acc = 0.7213
-04/23/2026 17:36:19 - INFO - __main__ -     eval_f1 = 0.7186
-04/23/2026 17:36:19 - INFO - __main__ -     eval_precision = 0.7186
-04/23/2026 17:36:19 - INFO - __main__ -     eval_recall = 0.7186
-04/23/2026 17:36:19 - INFO - __main__ -     ********************
-04/23/2026 17:36:19 - INFO - __main__ -     Best F1:0.7186
-04/23/2026 17:36:19 - INFO - __main__ -     ********************
-04/23/2026 17:36:20 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 8 loss 0.401:   0%|          | 0/11 [00:00<?, ?it/s]epoch 8 loss 0.43:   0%|          | 0/11 [00:01<?, ?it/s] epoch 8 loss 0.364:   0%|          | 0/11 [00:02<?, ?it/s]epoch 8 loss 0.339:   0%|          | 0/11 [00:03<?, ?it/s]epoch 8 loss 0.313:   0%|          | 0/11 [00:04<?, ?it/s]epoch 8 loss 0.284:   0%|          | 0/11 [00:05<?, ?it/s]epoch 8 loss 0.284:  55%|█████▍    | 6/11 [00:05<00:04,  1.13it/s]epoch 8 loss 0.276:  55%|█████▍    | 6/11 [00:06<00:04,  1.13it/s]epoch 8 loss 0.273:  55%|█████▍    | 6/11 [00:07<00:04,  1.13it/s]epoch 8 loss 0.271:  55%|█████▍    | 6/11 [00:07<00:04,  1.13it/s]epoch 8 loss 0.274:  55%|█████▍    | 6/11 [00:08<00:04,  1.13it/s]epoch 8 loss 0.263:  55%|█████▍    | 6/11 [00:09<00:04,  1.13it/s]epoch 8 loss 0.263: 100%|██████████| 11/11 [00:09<00:00,  1.18it/s]
-04/23/2026 17:36:30 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:36:30 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:36:30 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:36:31 - INFO - __main__ -     eval_loss = 0.758
-04/23/2026 17:36:31 - INFO - __main__ -     eval_acc = 0.7213
-04/23/2026 17:36:31 - INFO - __main__ -     eval_f1 = 0.7101
-04/23/2026 17:36:31 - INFO - __main__ -     eval_precision = 0.7265
-04/23/2026 17:36:31 - INFO - __main__ -     eval_recall = 0.7088
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 9 loss 0.163:   0%|          | 0/11 [00:01<?, ?it/s]epoch 9 loss 0.2:   0%|          | 0/11 [00:01<?, ?it/s]  epoch 9 loss 0.258:   0%|          | 0/11 [00:02<?, ?it/s]epoch 9 loss 0.283:   0%|          | 0/11 [00:03<?, ?it/s]epoch 9 loss 0.286:   0%|          | 0/11 [00:04<?, ?it/s]epoch 9 loss 0.305:   0%|          | 0/11 [00:05<?, ?it/s]epoch 9 loss 0.305:  55%|█████▍    | 6/11 [00:05<00:04,  1.11it/s]epoch 9 loss 0.281:  55%|█████▍    | 6/11 [00:06<00:04,  1.11it/s]epoch 9 loss 0.28:  55%|█████▍    | 6/11 [00:07<00:04,  1.11it/s] epoch 9 loss 0.282:  55%|█████▍    | 6/11 [00:08<00:04,  1.11it/s]epoch 9 loss 0.28:  55%|█████▍    | 6/11 [00:08<00:04,  1.11it/s] epoch 9 loss 0.271:  55%|█████▍    | 6/11 [00:09<00:04,  1.11it/s]epoch 9 loss 0.271: 100%|██████████| 11/11 [00:09<00:00,  1.16it/s]
-04/23/2026 17:36:41 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:36:41 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:36:41 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:36:42 - INFO - __main__ -     eval_loss = 0.8198
-04/23/2026 17:36:42 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:36:42 - INFO - __main__ -     eval_f1 = 0.7445
-04/23/2026 17:36:42 - INFO - __main__ -     eval_precision = 0.7441
-04/23/2026 17:36:42 - INFO - __main__ -     eval_recall = 0.7459
-04/23/2026 17:36:42 - INFO - __main__ -     ********************
-04/23/2026 17:36:42 - INFO - __main__ -     Best F1:0.7445
-04/23/2026 17:36:42 - INFO - __main__ -     ********************
-04/23/2026 17:36:43 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 10 loss 0.294:   0%|          | 0/11 [00:00<?, ?it/s]epoch 10 loss 0.306:   0%|          | 0/11 [00:01<?, ?it/s]epoch 10 loss 0.281:   0%|          | 0/11 [00:02<?, ?it/s]epoch 10 loss 0.248:   0%|          | 0/11 [00:03<?, ?it/s]epoch 10 loss 0.22:   0%|          | 0/11 [00:04<?, ?it/s] epoch 10 loss 0.221:   0%|          | 0/11 [00:05<?, ?it/s]epoch 10 loss 0.221:  55%|█████▍    | 6/11 [00:05<00:04,  1.11it/s]epoch 10 loss 0.229:  55%|█████▍    | 6/11 [00:06<00:04,  1.11it/s]epoch 10 loss 0.244:  55%|█████▍    | 6/11 [00:07<00:04,  1.11it/s]epoch 10 loss 0.244:  55%|█████▍    | 6/11 [00:08<00:04,  1.11it/s]epoch 10 loss 0.238:  55%|█████▍    | 6/11 [00:08<00:04,  1.11it/s]epoch 10 loss 0.226:  55%|█████▍    | 6/11 [00:09<00:04,  1.11it/s]epoch 10 loss 0.226: 100%|██████████| 11/11 [00:09<00:00,  1.16it/s]
-04/23/2026 17:36:53 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:36:53 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:36:53 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:36:54 - INFO - __main__ -     eval_loss = 0.7777
-04/23/2026 17:36:54 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:36:54 - INFO - __main__ -     eval_f1 = 0.7445
-04/23/2026 17:36:54 - INFO - __main__ -     eval_precision = 0.7441
-04/23/2026 17:36:54 - INFO - __main__ -     eval_recall = 0.7459
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 11 loss 0.289:   0%|          | 0/11 [00:01<?, ?it/s]epoch 11 loss 0.261:   0%|          | 0/11 [00:01<?, ?it/s]epoch 11 loss 0.222:   0%|          | 0/11 [00:02<?, ?it/s]epoch 11 loss 0.184:   0%|          | 0/11 [00:03<?, ?it/s]epoch 11 loss 0.212:   0%|          | 0/11 [00:04<?, ?it/s]epoch 11 loss 0.2:   0%|          | 0/11 [00:05<?, ?it/s]  epoch 11 loss 0.2:  55%|█████▍    | 6/11 [00:05<00:04,  1.10it/s]epoch 11 loss 0.21:  55%|█████▍    | 6/11 [00:06<00:04,  1.10it/s]epoch 11 loss 0.205:  55%|█████▍    | 6/11 [00:07<00:04,  1.10it/s]epoch 11 loss 0.216:  55%|█████▍    | 6/11 [00:08<00:04,  1.10it/s]epoch 11 loss 0.208:  55%|█████▍    | 6/11 [00:08<00:04,  1.10it/s]epoch 11 loss 0.198:  55%|█████▍    | 6/11 [00:09<00:04,  1.10it/s]epoch 11 loss 0.198: 100%|██████████| 11/11 [00:09<00:00,  1.15it/s]
-04/23/2026 17:37:03 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:37:03 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:37:03 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:37:04 - INFO - __main__ -     eval_loss = 0.8022
-04/23/2026 17:37:04 - INFO - __main__ -     eval_acc = 0.7541
-04/23/2026 17:37:04 - INFO - __main__ -     eval_f1 = 0.7498
-04/23/2026 17:37:04 - INFO - __main__ -     eval_precision = 0.7528
-04/23/2026 17:37:04 - INFO - __main__ -     eval_recall = 0.7484
-04/23/2026 17:37:04 - INFO - __main__ -     ********************
-04/23/2026 17:37:04 - INFO - __main__ -     Best F1:0.7498
-04/23/2026 17:37:04 - INFO - __main__ -     ********************
-04/23/2026 17:37:06 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 12 loss 0.206:   0%|          | 0/11 [00:00<?, ?it/s]epoch 12 loss 0.192:   0%|          | 0/11 [00:01<?, ?it/s]epoch 12 loss 0.195:   0%|          | 0/11 [00:02<?, ?it/s]epoch 12 loss 0.182:   0%|          | 0/11 [00:03<?, ?it/s]epoch 12 loss 0.179:   0%|          | 0/11 [00:04<?, ?it/s]epoch 12 loss 0.165:   0%|          | 0/11 [00:05<?, ?it/s]epoch 12 loss 0.165:  55%|█████▍    | 6/11 [00:05<00:04,  1.11it/s]epoch 12 loss 0.159:  55%|█████▍    | 6/11 [00:06<00:04,  1.11it/s]epoch 12 loss 0.162:  55%|█████▍    | 6/11 [00:07<00:04,  1.11it/s]epoch 12 loss 0.157:  55%|█████▍    | 6/11 [00:08<00:04,  1.11it/s]epoch 12 loss 0.156:  55%|█████▍    | 6/11 [00:08<00:04,  1.11it/s]epoch 12 loss 0.158:  55%|█████▍    | 6/11 [00:09<00:04,  1.11it/s]epoch 12 loss 0.158: 100%|██████████| 11/11 [00:09<00:00,  1.16it/s]
-04/23/2026 17:37:15 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:37:15 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:37:15 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:37:16 - INFO - __main__ -     eval_loss = 0.8783
-04/23/2026 17:37:16 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:37:16 - INFO - __main__ -     eval_f1 = 0.743
-04/23/2026 17:37:16 - INFO - __main__ -     eval_precision = 0.7435
-04/23/2026 17:37:16 - INFO - __main__ -     eval_recall = 0.7426
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 13 loss 0.07:   0%|          | 0/11 [00:01<?, ?it/s]epoch 13 loss 0.095:   0%|          | 0/11 [00:01<?, ?it/s]epoch 13 loss 0.102:   0%|          | 0/11 [00:02<?, ?it/s]epoch 13 loss 0.113:   0%|          | 0/11 [00:03<?, ?it/s]epoch 13 loss 0.106:   0%|          | 0/11 [00:04<?, ?it/s]epoch 13 loss 0.111:   0%|          | 0/11 [00:05<?, ?it/s]epoch 13 loss 0.111:  55%|█████▍    | 6/11 [00:05<00:04,  1.10it/s]epoch 13 loss 0.116:  55%|█████▍    | 6/11 [00:06<00:04,  1.10it/s]epoch 13 loss 0.119:  55%|█████▍    | 6/11 [00:07<00:04,  1.10it/s]epoch 13 loss 0.126:  55%|█████▍    | 6/11 [00:08<00:04,  1.10it/s]epoch 13 loss 0.133:  55%|█████▍    | 6/11 [00:08<00:04,  1.10it/s]epoch 13 loss 0.161:  55%|█████▍    | 6/11 [00:09<00:04,  1.10it/s]epoch 13 loss 0.161: 100%|██████████| 11/11 [00:09<00:00,  1.15it/s]
-04/23/2026 17:37:26 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:37:26 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:37:26 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:37:27 - INFO - __main__ -     eval_loss = 0.9016
-04/23/2026 17:37:27 - INFO - __main__ -     eval_acc = 0.7541
-04/23/2026 17:37:27 - INFO - __main__ -     eval_f1 = 0.7524
-04/23/2026 17:37:27 - INFO - __main__ -     eval_precision = 0.752
-04/23/2026 17:37:27 - INFO - __main__ -     eval_recall = 0.7533
-04/23/2026 17:37:27 - INFO - __main__ -     ********************
-04/23/2026 17:37:27 - INFO - __main__ -     Best F1:0.7524
-04/23/2026 17:37:27 - INFO - __main__ -     ********************
-04/23/2026 17:37:28 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 14 loss 0.158:   0%|          | 0/11 [00:01<?, ?it/s]epoch 14 loss 0.099:   0%|          | 0/11 [00:01<?, ?it/s]epoch 14 loss 0.081:   0%|          | 0/11 [00:02<?, ?it/s]epoch 14 loss 0.101:   0%|          | 0/11 [00:03<?, ?it/s]epoch 14 loss 0.119:   0%|          | 0/11 [00:04<?, ?it/s]epoch 14 loss 0.126:   0%|          | 0/11 [00:05<?, ?it/s]epoch 14 loss 0.126:  55%|█████▍    | 6/11 [00:05<00:04,  1.10it/s]epoch 14 loss 0.119:  55%|█████▍    | 6/11 [00:06<00:04,  1.10it/s]epoch 14 loss 0.108:  55%|█████▍    | 6/11 [00:07<00:04,  1.10it/s]epoch 14 loss 0.11:  55%|█████▍    | 6/11 [00:08<00:04,  1.10it/s] epoch 14 loss 0.113:  55%|█████▍    | 6/11 [00:08<00:04,  1.10it/s]epoch 14 loss 0.115:  55%|█████▍    | 6/11 [00:09<00:04,  1.10it/s]epoch 14 loss 0.115: 100%|██████████| 11/11 [00:09<00:00,  1.15it/s]
-04/23/2026 17:37:38 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:37:38 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:37:38 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:37:39 - INFO - __main__ -     eval_loss = 0.9213
-04/23/2026 17:37:39 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:37:39 - INFO - __main__ -     eval_f1 = 0.743
-04/23/2026 17:37:39 - INFO - __main__ -     eval_precision = 0.7435
-04/23/2026 17:37:39 - INFO - __main__ -     eval_recall = 0.7426
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 15 loss 0.065:   0%|          | 0/11 [00:01<?, ?it/s]epoch 15 loss 0.096:   0%|          | 0/11 [00:01<?, ?it/s]epoch 15 loss 0.098:   0%|          | 0/11 [00:02<?, ?it/s]epoch 15 loss 0.093:   0%|          | 0/11 [00:03<?, ?it/s]epoch 15 loss 0.104:   0%|          | 0/11 [00:04<?, ?it/s]epoch 15 loss 0.095:   0%|          | 0/11 [00:05<?, ?it/s]epoch 15 loss 0.095:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 15 loss 0.092:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 15 loss 0.094:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 15 loss 0.094:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 15 loss 0.089:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 15 loss 0.097:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 15 loss 0.097: 100%|██████████| 11/11 [00:09<00:00,  1.15it/s]
-04/23/2026 17:37:49 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:37:49 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:37:49 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:37:50 - INFO - __main__ -     eval_loss = 1.0074
-04/23/2026 17:37:50 - INFO - __main__ -     eval_acc = 0.7541
-04/23/2026 17:37:50 - INFO - __main__ -     eval_f1 = 0.7524
-04/23/2026 17:37:50 - INFO - __main__ -     eval_precision = 0.752
-04/23/2026 17:37:50 - INFO - __main__ -     eval_recall = 0.7533
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 16 loss 0.065:   0%|          | 0/11 [00:01<?, ?it/s]epoch 16 loss 0.117:   0%|          | 0/11 [00:01<?, ?it/s]epoch 16 loss 0.138:   0%|          | 0/11 [00:02<?, ?it/s]epoch 16 loss 0.114:   0%|          | 0/11 [00:03<?, ?it/s]epoch 16 loss 0.104:   0%|          | 0/11 [00:04<?, ?it/s]epoch 16 loss 0.106:   0%|          | 0/11 [00:05<?, ?it/s]epoch 16 loss 0.106:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 16 loss 0.107:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 16 loss 0.114:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 16 loss 0.112:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 16 loss 0.106:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 16 loss 0.099:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 16 loss 0.099: 100%|██████████| 11/11 [00:09<00:00,  1.14it/s]
-04/23/2026 17:38:00 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:38:00 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:38:00 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:38:01 - INFO - __main__ -     eval_loss = 1.0305
-04/23/2026 17:38:01 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:38:01 - INFO - __main__ -     eval_f1 = 0.743
-04/23/2026 17:38:01 - INFO - __main__ -     eval_precision = 0.7435
-04/23/2026 17:38:01 - INFO - __main__ -     eval_recall = 0.7426
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 17 loss 0.091:   0%|          | 0/11 [00:01<?, ?it/s]epoch 17 loss 0.092:   0%|          | 0/11 [00:01<?, ?it/s]epoch 17 loss 0.091:   0%|          | 0/11 [00:02<?, ?it/s]epoch 17 loss 0.093:   0%|          | 0/11 [00:03<?, ?it/s]epoch 17 loss 0.084:   0%|          | 0/11 [00:04<?, ?it/s]epoch 17 loss 0.082:   0%|          | 0/11 [00:05<?, ?it/s]epoch 17 loss 0.082:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 17 loss 0.093:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 17 loss 0.086:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 17 loss 0.081:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 17 loss 0.081:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 17 loss 0.077:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 17 loss 0.077: 100%|██████████| 11/11 [00:09<00:00,  1.14it/s]
-04/23/2026 17:38:11 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:38:11 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:38:11 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:38:12 - INFO - __main__ -     eval_loss = 1.1108
-04/23/2026 17:38:12 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:38:12 - INFO - __main__ -     eval_f1 = 0.7445
-04/23/2026 17:38:12 - INFO - __main__ -     eval_precision = 0.7441
-04/23/2026 17:38:12 - INFO - __main__ -     eval_recall = 0.7459
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 18 loss 0.095:   0%|          | 0/11 [00:01<?, ?it/s]epoch 18 loss 0.116:   0%|          | 0/11 [00:01<?, ?it/s]epoch 18 loss 0.091:   0%|          | 0/11 [00:02<?, ?it/s]epoch 18 loss 0.076:   0%|          | 0/11 [00:03<?, ?it/s]epoch 18 loss 0.067:   0%|          | 0/11 [00:04<?, ?it/s]epoch 18 loss 0.071:   0%|          | 0/11 [00:05<?, ?it/s]epoch 18 loss 0.071:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 18 loss 0.074:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 18 loss 0.082:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 18 loss 0.076:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 18 loss 0.078:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 18 loss 0.09:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s] epoch 18 loss 0.09: 100%|██████████| 11/11 [00:09<00:00,  1.14it/s]
-04/23/2026 17:38:22 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:38:22 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:38:22 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:38:23 - INFO - __main__ -     eval_loss = 1.0928
-04/23/2026 17:38:23 - INFO - __main__ -     eval_acc = 0.7623
-04/23/2026 17:38:23 - INFO - __main__ -     eval_f1 = 0.7603
-04/23/2026 17:38:23 - INFO - __main__ -     eval_precision = 0.76
-04/23/2026 17:38:23 - INFO - __main__ -     eval_recall = 0.7608
-04/23/2026 17:38:23 - INFO - __main__ -     ********************
-04/23/2026 17:38:23 - INFO - __main__ -     Best F1:0.7603
-04/23/2026 17:38:23 - INFO - __main__ -     ********************
-04/23/2026 17:38:24 - INFO - __main__ -   Saving model checkpoint to ./saved_models_sv_python_1/checkpoint-best-f1/model.bin
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 19 loss 0.048:   0%|          | 0/11 [00:01<?, ?it/s]epoch 19 loss 0.045:   0%|          | 0/11 [00:01<?, ?it/s]epoch 19 loss 0.067:   0%|          | 0/11 [00:02<?, ?it/s]epoch 19 loss 0.084:   0%|          | 0/11 [00:03<?, ?it/s]epoch 19 loss 0.078:   0%|          | 0/11 [00:04<?, ?it/s]epoch 19 loss 0.076:   0%|          | 0/11 [00:05<?, ?it/s]epoch 19 loss 0.076:  55%|█████▍    | 6/11 [00:05<00:04,  1.10it/s]epoch 19 loss 0.076:  55%|█████▍    | 6/11 [00:06<00:04,  1.10it/s]epoch 19 loss 0.073:  55%|█████▍    | 6/11 [00:07<00:04,  1.10it/s]epoch 19 loss 0.077:  55%|█████▍    | 6/11 [00:08<00:04,  1.10it/s]epoch 19 loss 0.078:  55%|█████▍    | 6/11 [00:09<00:04,  1.10it/s]epoch 19 loss 0.072:  55%|█████▍    | 6/11 [00:09<00:04,  1.10it/s]epoch 19 loss 0.072: 100%|██████████| 11/11 [00:09<00:00,  1.15it/s]
-04/23/2026 17:38:34 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:38:34 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:38:34 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:38:35 - INFO - __main__ -     eval_loss = 1.1236
-04/23/2026 17:38:35 - INFO - __main__ -     eval_acc = 0.7541
-04/23/2026 17:38:35 - INFO - __main__ -     eval_f1 = 0.7524
-04/23/2026 17:38:35 - INFO - __main__ -     eval_precision = 0.752
-04/23/2026 17:38:35 - INFO - __main__ -     eval_recall = 0.7533
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 20 loss 0.089:   0%|          | 0/11 [00:01<?, ?it/s]epoch 20 loss 0.085:   0%|          | 0/11 [00:01<?, ?it/s]epoch 20 loss 0.098:   0%|          | 0/11 [00:02<?, ?it/s]epoch 20 loss 0.093:   0%|          | 0/11 [00:03<?, ?it/s]epoch 20 loss 0.09:   0%|          | 0/11 [00:04<?, ?it/s] epoch 20 loss 0.089:   0%|          | 0/11 [00:05<?, ?it/s]epoch 20 loss 0.089:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 20 loss 0.081:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 20 loss 0.076:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 20 loss 0.073:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 20 loss 0.068:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 20 loss 0.065:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 20 loss 0.065: 100%|██████████| 11/11 [00:09<00:00,  1.14it/s]
-04/23/2026 17:38:45 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:38:45 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:38:45 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:38:46 - INFO - __main__ -     eval_loss = 1.1297
-04/23/2026 17:38:46 - INFO - __main__ -     eval_acc = 0.7623
-04/23/2026 17:38:46 - INFO - __main__ -     eval_f1 = 0.7603
-04/23/2026 17:38:46 - INFO - __main__ -     eval_precision = 0.76
-04/23/2026 17:38:46 - INFO - __main__ -     eval_recall = 0.7608
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 21 loss 0.037:   0%|          | 0/11 [00:01<?, ?it/s]epoch 21 loss 0.03:   0%|          | 0/11 [00:01<?, ?it/s] epoch 21 loss 0.033:   0%|          | 0/11 [00:02<?, ?it/s]epoch 21 loss 0.032:   0%|          | 0/11 [00:03<?, ?it/s]epoch 21 loss 0.038:   0%|          | 0/11 [00:04<?, ?it/s]epoch 21 loss 0.044:   0%|          | 0/11 [00:05<?, ?it/s]epoch 21 loss 0.044:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 21 loss 0.053:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 21 loss 0.047:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 21 loss 0.053:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 21 loss 0.059:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 21 loss 0.059:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 21 loss 0.059: 100%|██████████| 11/11 [00:09<00:00,  1.14it/s]
-04/23/2026 17:38:56 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:38:56 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:38:56 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:38:57 - INFO - __main__ -     eval_loss = 1.1486
-04/23/2026 17:38:57 - INFO - __main__ -     eval_acc = 0.7623
-04/23/2026 17:38:57 - INFO - __main__ -     eval_f1 = 0.7603
-04/23/2026 17:38:57 - INFO - __main__ -     eval_precision = 0.76
-04/23/2026 17:38:57 - INFO - __main__ -     eval_recall = 0.7608
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 22 loss 0.048:   0%|          | 0/11 [00:01<?, ?it/s]epoch 22 loss 0.059:   0%|          | 0/11 [00:01<?, ?it/s]epoch 22 loss 0.048:   0%|          | 0/11 [00:02<?, ?it/s]epoch 22 loss 0.047:   0%|          | 0/11 [00:03<?, ?it/s]epoch 22 loss 0.049:   0%|          | 0/11 [00:04<?, ?it/s]epoch 22 loss 0.045:   0%|          | 0/11 [00:05<?, ?it/s]epoch 22 loss 0.045:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 22 loss 0.045:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 22 loss 0.045:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 22 loss 0.045:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 22 loss 0.044:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 22 loss 0.059:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 22 loss 0.059: 100%|██████████| 11/11 [00:09<00:00,  1.13it/s]
-04/23/2026 17:39:07 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:39:07 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:39:07 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:39:08 - INFO - __main__ -     eval_loss = 1.1848
-04/23/2026 17:39:08 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:39:08 - INFO - __main__ -     eval_f1 = 0.7445
-04/23/2026 17:39:08 - INFO - __main__ -     eval_precision = 0.7441
-04/23/2026 17:39:08 - INFO - __main__ -     eval_recall = 0.7459
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 23 loss 0.011:   0%|          | 0/11 [00:01<?, ?it/s]epoch 23 loss 0.034:   0%|          | 0/11 [00:01<?, ?it/s]epoch 23 loss 0.053:   0%|          | 0/11 [00:02<?, ?it/s]epoch 23 loss 0.054:   0%|          | 0/11 [00:03<?, ?it/s]epoch 23 loss 0.054:   0%|          | 0/11 [00:04<?, ?it/s]epoch 23 loss 0.059:   0%|          | 0/11 [00:05<?, ?it/s]epoch 23 loss 0.059:  55%|█████▍    | 6/11 [00:05<00:04,  1.09it/s]epoch 23 loss 0.055:  55%|█████▍    | 6/11 [00:06<00:04,  1.09it/s]epoch 23 loss 0.059:  55%|█████▍    | 6/11 [00:07<00:04,  1.09it/s]epoch 23 loss 0.054:  55%|█████▍    | 6/11 [00:08<00:04,  1.09it/s]epoch 23 loss 0.057:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 23 loss 0.061:  55%|█████▍    | 6/11 [00:09<00:04,  1.09it/s]epoch 23 loss 0.061: 100%|██████████| 11/11 [00:09<00:00,  1.13it/s]
-04/23/2026 17:39:18 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:39:18 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:39:18 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:39:19 - INFO - __main__ -     eval_loss = 1.1825
-04/23/2026 17:39:19 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:39:19 - INFO - __main__ -     eval_f1 = 0.7445
-04/23/2026 17:39:19 - INFO - __main__ -     eval_precision = 0.7441
-04/23/2026 17:39:19 - INFO - __main__ -     eval_recall = 0.7459
-  0%|          | 0/11 [00:00<?, ?it/s]epoch 24 loss 0.09:   0%|          | 0/11 [00:01<?, ?it/s]epoch 24 loss 0.054:   0%|          | 0/11 [00:01<?, ?it/s]epoch 24 loss 0.053:   0%|          | 0/11 [00:02<?, ?it/s]epoch 24 loss 0.06:   0%|          | 0/11 [00:03<?, ?it/s] epoch 24 loss 0.06:   0%|          | 0/11 [00:04<?, ?it/s]epoch 24 loss 0.058:   0%|          | 0/11 [00:05<?, ?it/s]epoch 24 loss 0.058:  55%|█████▍    | 6/11 [00:05<00:04,  1.08it/s]epoch 24 loss 0.058:  55%|█████▍    | 6/11 [00:06<00:04,  1.08it/s]epoch 24 loss 0.055:  55%|█████▍    | 6/11 [00:07<00:04,  1.08it/s]epoch 24 loss 0.055:  55%|█████▍    | 6/11 [00:08<00:04,  1.08it/s]epoch 24 loss 0.052:  55%|█████▍    | 6/11 [00:09<00:04,  1.08it/s]epoch 24 loss 0.051:  55%|█████▍    | 6/11 [00:09<00:04,  1.08it/s]epoch 24 loss 0.051: 100%|██████████| 11/11 [00:09<00:00,  1.13it/s]
-04/23/2026 17:39:29 - INFO - __main__ -   ***** Running evaluation *****
-04/23/2026 17:39:29 - INFO - __main__ -     Num examples = 122
-04/23/2026 17:39:29 - INFO - __main__ -     Batch size = 32
-04/23/2026 17:39:30 - INFO - __main__ -     eval_loss = 1.1755
-04/23/2026 17:39:30 - INFO - __main__ -     eval_acc = 0.7459
-04/23/2026 17:39:30 - INFO - __main__ -     eval_f1 = 0.7445
-04/23/2026 17:39:30 - INFO - __main__ -     eval_precision = 0.7441
-04/23/2026 17:39:30 - INFO - __main__ -     eval_recall = 0.7459
-04/23/2026 17:39:31 - INFO - __main__ -   ***** Running Test *****
-04/23/2026 17:39:31 - INFO - __main__ -     Num examples = 152
-04/23/2026 17:39:31 - INFO - __main__ -     Batch size = 32
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:00,  4.94it/s] 40%|████      | 2/5 [00:00<00:00,  4.93it/s] 60%|██████    | 3/5 [00:00<00:00,  4.88it/s] 80%|████████  | 4/5 [00:00<00:00,  4.89it/s]100%|██████████| 5/5 [00:00<00:00,  5.21it/s]100%|██████████| 5/5 [00:00<00:00,  5.07it/s]
-04/23/2026 17:39:32 - INFO - __main__ -   Predictions saved to ./saved_models_sv_python_1/predictions.csv
-04/23/2026 17:39:32 - INFO - __main__ -   ***** Test Results *****
-04/23/2026 17:39:32 - INFO - __main__ -     Accuracy  = 0.7500
-04/23/2026 17:39:32 - INFO - __main__ -     Precision = 0.7505
-04/23/2026 17:39:32 - INFO - __main__ -     Recall    = 0.7505
-04/23/2026 17:39:32 - INFO - __main__ -     F1        = 0.7500
-04/23/2026 17:39:32 - INFO - __main__ -   
-                precision    recall  f1-score   support
-
-non-vulnerable       0.77      0.73      0.75        78
-    vulnerable       0.73      0.77      0.75        74
-
-      accuracy                           0.75       152
-     macro avg       0.75      0.75      0.75       152
-  weighted avg       0.75      0.75      0.75       152
-
-04/23/2026 17:39:32 - INFO - __main__ -   Metrics saved to ./saved_models_sv_python_1/test_metrics.txt

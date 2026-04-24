@@ -1,0 +1,14 @@
+Accuracy:  0.7500
+Precision: 0.7505
+Recall:    0.7505
+F1:        0.7500
+
+Classification Report:
+                precision    recall  f1-score   support
+
+non-vulnerable       0.77      0.73      0.75        78
+    vulnerable       0.73      0.77      0.75        74
+
+      accuracy                           0.75       152
+     macro avg       0.75      0.75      0.75       152
+  weighted avg       0.75      0.75      0.75       152
