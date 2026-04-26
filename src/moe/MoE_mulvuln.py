@@ -715,7 +715,6 @@ def run_pipeline():
     print(f"  Raw CWE range required: [0, {raw_num_classes-1}] (positive only)")
     print(f"  Negative CWE values (special): {sorted(list(negative_cwes_in_data))}")
     print(f"  Cluster label range required: [0, {num_experts-1}]")    
-    
     print(f"    All CWE indices are valid (including {len(negative_cwes_in_data)} special negative CWE values)!")
     print("")
     
@@ -1090,8 +1089,7 @@ def run_pipeline():
             f,
             indent=2
         )
-    print(f"CWE cluster mapping saved to {cluster_map_file}")
-    print(f"  (Merged {len(rare_cwes_info)} CWEs with <= 20 samples into rare cluster)")
+    print(f"  Language cluster mapping saved to {cluster_map_file}")
     
     # ROUTED-EXPERT PREDICTION/REPORT FILES
     
