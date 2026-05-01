@@ -14,7 +14,7 @@ from pathlib import Path
 from datetime import datetime
 from collections import Counter
 from tqdm.auto import tqdm
-from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, LANG_CLUSTER, F1_BEST_STATE, MODEL_SAVE_DIR, TEST_MODE
+from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, F1_BEST_STATE, MODEL_SAVE_DIR, TEST_MODE
 from MoE_model import MoE_VulnerabilityDetector
 # LOGGING SETUP 
 log_dir = Path("logs")
@@ -46,55 +46,25 @@ class PrintLogger:
 
 # Redirect print to logging
 original_print = print
-def print(*args, **kwargs):
+def print(*args):
     message = ' '.join(str(arg) for arg in args)
     log.info(message)
 
 
-# loss && metrics
-def focal_loss(logits, targets, alpha=0.25, gamma=2.0, label_smoothing=0.0, pos_weight=None):
-    """Focal Loss with label smoothing and class weighting for handling class imbalance"""
-    # Apply label smoothing
-    if label_smoothing > 0:
-        targets = targets * (1 - label_smoothing) + 0.5 * label_smoothing
-    
-    # Apply class weighting if provided
-    if pos_weight is not None:
-        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none', pos_weight=pos_weight)
-    else:
-        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
-    
-    probs = torch.sigmoid(logits)
-    pt = targets * probs + (1 - targets) * (1 - probs)
-    focal_weight = (1 - pt) ** gamma
-    loss = focal_weight * bce_loss
-    return loss.mean()
 
 def moe_multitask_loss(binary_logits, binary_targets, router_logits, cwe_labels,
                        fraction_routed, prob_per_expert, num_experts, 
-                       pos_weight=None, use_focal=True, label_smoothing=0.05, alpha=0.005, beta=0.2):
-    """Improved loss function with class weighting, focal loss, and label smoothing
-    
-    Changes from baseline to match performance:
-    - Reduced label_smoothing: 0.1 -> 0.05 (less aggressive)
-    - Reduced alpha (aux loss weight): 0.01 -> 0.005 (focus more on main task)
-    - Reduced beta (CWE loss weight): 0.3 -> 0.2 (focus more on binary classification)
-    - Pass pos_weight to focal_loss for class balance
-    """
-    if use_focal:
-        # Pass pos_weight to focal loss for better class balance (like baseline)
-        bce_loss = focal_loss(binary_logits, binary_targets, alpha=0.25, gamma=2.0, 
-                             label_smoothing=label_smoothing, pos_weight=pos_weight)
+                       pos_weight=None, alpha=0.005, beta=0.2):
+   
+    if pos_weight is not None:
+        bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets, pos_weight=pos_weight)
     else:
-        if pos_weight is not None:
-            bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets, pos_weight=pos_weight)
-        else:
-            bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets)
+        bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets)
     
-    # Less aggressive label smoothing for CWE classification
+    # Less aggressive label smoothing for classification
     ce_loss_cwe = F.cross_entropy(router_logits, cwe_labels, label_smoothing=0.02)
     
-    # Load balancing auxiliary loss (reduced weight)
+    # Load balancing auxiliary loss
     aux_loss = num_experts * torch.sum(fraction_routed * prob_per_expert)
     
     total_loss = bce_loss + beta * ce_loss_cwe + alpha * aux_loss
@@ -135,7 +105,6 @@ def find_optimal_threshold(model, data_loader, device):
     all_probs = np.array(all_probs).flatten()
     all_targets = np.array(all_targets).flatten()
     
-    # Debug: Print probability distribution
     print(f"\nProbability distribution:")
     print(f"  Min: {all_probs.min():.4f}, Max: {all_probs.max():.4f}")
     print(f"  Mean: {all_probs.mean():.4f}, Std: {all_probs.std():.4f}")
@@ -146,7 +115,6 @@ def find_optimal_threshold(model, data_loader, device):
     best_f1 = 0.0
     best_metrics = {}
     
-    # Search with finer granularity
     thresholds_to_try = np.arange(0.05, 0.95, 0.02)
     
     print(f"\nSearching optimal threshold...")
@@ -177,9 +145,8 @@ def find_optimal_threshold(model, data_loader, device):
     
     return best_threshold, best_metrics
 
-def get_num_classes_cwe(data_list, label_field='cwe'):
-    """Get number of classes needed based on max index in selected label field.
-    Supports both positive IDs and special negative values (-1, -2, etc.).
+def get_num_classes(data_list, label_field='cwe'):
+    """Get number of cwe classes.
     """
     cwe_ids = set()
     for item in data_list:
@@ -209,11 +176,11 @@ def get_num_classes_cwe(data_list, label_field='cwe'):
     print(f"  Positive CWE IDs: {len(positive_cwes)}")
     print(f"  Negative CWE IDs (special values): {len(negative_cwes)} {sorted(list(negative_cwes))}")
     print(f"CWE index range: [{min_cwe_index}, {max_cwe_index if positive_cwes else 'N/A'}]")
-    print(f"Number of CWE classes (for positive, max+1): {num_classes}")
+    print(f"Number of CWE classes: {num_classes}")
     
     return num_classes, sorted(list(cwe_ids)), negative_cwes
 
-def build_clusters(data_list, target_experts=None, min_experts=4, max_experts=32, min_samples_threshold=20, label_field='cwe'):
+def build_clusters(data_list,  min_experts=4, label_field='cluster_type'):
     """Clustering label IDs into fewer balanced groups for router training.
 
     Args:
@@ -431,19 +398,11 @@ def get_language_label(item):
     return language if language else "Unknown"
 
 
-def remap_type_index(train_data, val_data, test_data, enable_lang_cluster=False):
+def remap_type_index(train_data, val_data, test_data):
     """Build per-item cluster_type used for router clustering.
-
-    If LANG_CLUSTER is False: cluster_type = cwe.
-    If LANG_CLUSTER is True:  cluster_type = language_to_index[language].
+        cluster_type = language_to_index[language].
     """
     all_data = train_data + val_data + test_data
-
-    if not enable_lang_cluster:
-        for item in all_data:
-            item["cluster_type"] = int(item["cwe"])
-        print("LANG_CLUSTER=False -> cluster_type is copied from cwe")
-        return train_data, val_data, test_data, None
 
     languages = sorted({get_language_label(item) for item in all_data})
     language_to_index = {language: idx for idx, language in enumerate(languages)}
@@ -452,7 +411,7 @@ def remap_type_index(train_data, val_data, test_data, enable_lang_cluster=False)
         language = get_language_label(item)
         item["cluster_type"] = language_to_index[language]
 
-    print("LANG_CLUSTER=True -> cluster_type is remapped from language index")
+    print(" cluster_type is remapped from language index")
     print(f"  Unique languages: {len(languages)}")
     print(f"  Language to index map: {language_to_index}")
 
@@ -496,8 +455,7 @@ def run_pipeline():
     train_data, val_data, test_data, _ = remap_type_index(
         train_data,
         val_data,
-        test_data,
-        enable_lang_cluster=LANG_CLUSTER,
+        test_data
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -510,10 +468,10 @@ def run_pipeline():
         print(f"Available Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
     print(f"Training samples: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
     
-    # 2. Analyze raw CWE space and build language clusters (from full data)
+    # Build language clusters (from full data)
     print("\nAnalyzing cluster_type distribution...")
     all_data_for_cwe = train_data + val_data + test_data
-    raw_num_classes, _, _ = get_num_classes_cwe(all_data_for_cwe, label_field='cluster_type')
+    raw_num_classes, _, _ = get_num_classes(all_data_for_cwe, label_field='cluster_type')
     num_experts, lang_to_cluster, lang_counter, cluster_loads = build_clusters(
         all_data_for_cwe,
         min_experts=4,
@@ -547,7 +505,7 @@ def run_pipeline():
     print(f"    All CWE indices are valid (including {len(negative_cwes_in_data)} special negative CWE values)!")
     print("")
     
-    # 3. Calculate class weights for imbalanced data
+    # Calculate class weights for imbalanced data
     pos_weight = calculate_class_weights(train_data)
     if pos_weight is not None:
         pos_weight = pos_weight.to(device)
@@ -556,7 +514,7 @@ def run_pipeline():
     print("Using on-the-fly encoding (fine-tuning enabled)")
     print("="*60)
     
-    # 5. DataLoaders
+    # DataLoaders
     train_dataset = VulnerabilityDataset(train_data)
     val_dataset = VulnerabilityDataset(val_data)
     test_dataset = VulnerabilityDataset(test_data)
@@ -580,7 +538,7 @@ def run_pipeline():
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    # 6. Initialize Model with encoder (fine-tunable)
+    # Initialize Model
     model = MoE_VulnerabilityDetector(
         input_dim=768, 
         hidden_dim=256, 
@@ -588,12 +546,12 @@ def run_pipeline():
         top_k=1, 
         dropout_rate=0.1,
         encoder_name="microsoft/codebert-base",
-        freeze_encoder=False  # Allow fine-tuning
+        freeze_encoder=False  # enable fine-tuning
     ).to(device)
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5, weight_decay=1e-5)
     
-    # Adjust epochs and scheduler from config
+    # Epochs and scheduler
     epochs = EPOCHS
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
     
@@ -645,9 +603,7 @@ def run_pipeline():
                 logits, frac_routed, prob_exp, router_logits = model(emb)
                 loss, bce, ce, aux = moe_multitask_loss(logits, vuln, router_logits, lang_cluster,
                                                         frac_routed, prob_exp, num_experts=num_experts, 
-                                                        pos_weight=pos_weight, use_focal=False,
-                                                        label_smoothing=0.05,
-                                                        alpha=0.005, beta=0.2)
+                                                        pos_weight=pos_weight,alpha=0.005, beta=0.2)
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -689,9 +645,7 @@ def run_pipeline():
                     logits, frac_routed, prob_exp, router_logits = model(emb)
                     loss, _, _, _ = moe_multitask_loss(logits, vuln, router_logits, lang_cluster,
                                                         frac_routed, prob_exp, num_experts=num_experts,
-                                                        pos_weight=pos_weight, use_focal=False,
-                                                        label_smoothing=0.05,
-                                                        alpha=0.005, beta=0.2)
+                                                        pos_weight=pos_weight, alpha=0.005, beta=0.2)
 
                     val_loss += loss.item()
                     val_acc += calculate_accuracy(logits, vuln).item()
@@ -726,7 +680,7 @@ def run_pipeline():
                 f"Train Loss: {avg_train_loss:.4f} Acc: {avg_train_acc:.4f} | "
                 f"Val Loss: {avg_val_loss:.4f} Acc: {avg_val_acc:.4f} F1: {val_f1:.4f}")
             
-            # Select monitoring metric for best checkpoint and early stopping
+            # Best checkpoint and early stopping
             monitor_value = val_f1 if F1_BEST_STATE else avg_val_acc
 
             if monitor_value > best_monitor_value:
@@ -779,7 +733,7 @@ def run_pipeline():
     print("="*60)
     model.eval()
     
-    # Collect all predictions and probabilities for comprehensive metrics
+    # All predictions and probabilities
     test_probabilities = []
     test_labels = []
     test_cwe_labels = []
@@ -795,7 +749,6 @@ def run_pipeline():
             logits, _, _, router_logits = model(emb)
             probs = torch.sigmoid(logits)
             
-            # Extract routing decisions: argmax of router_logits gives dominant cluster for each sample
             routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
             
             test_probabilities.extend(probs.cpu().numpy().flatten().tolist())
@@ -808,16 +761,15 @@ def run_pipeline():
     
 
 
-    # Convert to numpy for easier computation
+    # Convert to numpy
     test_probs_np = np.array(test_probabilities)
     test_labels_np = np.array(test_labels)
     
-    # Calculate metrics for BOTH thresholds
     # Threshold 0.5 (default)
     preds_default = (test_probs_np >= 0.5).astype(int)
     acc_default = (preds_default == test_labels_np).mean()
     
-    # Calculate F1, precision, recall for default threshold
+    # Calculate F1, precision, recall default threshold
     preds_default_tensor = torch.tensor(preds_default, dtype=torch.float32)
     labels_tensor = torch.tensor(test_labels_np, dtype=torch.float32)
     f1_default, precision_default, recall_default = calculate_f1_score(preds_default_tensor, labels_tensor)
@@ -826,11 +778,11 @@ def run_pipeline():
     preds_optimal = (test_probs_np >= optimal_threshold).astype(int)
     acc_optimal = (preds_optimal == test_labels_np).mean()
     
-    # Calculate F1, precision, recall for optimal threshold
+    # Calculate F1, precision, recall optimal threshold
     preds_optimal_tensor = torch.tensor(preds_optimal, dtype=torch.float32)
     f1_optimal, precision_optimal, recall_optimal = calculate_f1_score(preds_optimal_tensor, labels_tensor)
     
-    # Use optimal threshold predictions for detailed logging
+    # Optimal threshold predictions
     test_predictions = preds_optimal.tolist()
     
     # Log test predictions to file with timestamp
@@ -918,7 +870,7 @@ def run_pipeline():
         print(f"{i:<8} {int(test_predictions[i]):<12} {int(test_labels[i]):<8} "
               f"{test_probabilities[i]:<12.4f} {int(test_cwe_labels[i]):<6} {str(test_language_labels[i]):<10} {is_correct:<9}")
 
-    # Print comprehensive metrics comparison
+    # Print metrics comparison
     print("\n" + "="*80)
     print("TEST METRICS COMPARISON")
     print("="*80)
@@ -944,7 +896,7 @@ def run_pipeline():
         print(f"= Optimal threshold has SAME F1 as default")
     print("="*80)
     
-    # --- ROUTING ANALYSIS BY LANGUAGE ---
+    # ROUTING ANALYSIS BY LANGUAGE
     print("\n" + "="*80)
     print("CLUSTER ROUTING DISTRIBUTION BY LANGUAGE (C++ and Python)")
     print("="*80)
@@ -1050,7 +1002,7 @@ def run_pipeline():
     print(f"{'Overall':<25} {language_cwe_overall['accuracy']*100:<11.2f}% {language_cwe_overall['precision']*100:<11.2f}% "
           f"{language_cwe_overall['recall']*100:<11.2f}% {language_cwe_overall['f1']*100:<11.2f}% {language_cwe_overall['total']:<10}")
     
-    # Save comprehensive final report
+    # Save final report
     final_report_file = results_dir / f"final_report_{timestamp}.txt"
     with open(final_report_file, "w") as f:
         f.write("="*70 + "\n")

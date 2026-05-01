@@ -14,7 +14,7 @@ from datetime import datetime
 from collections import Counter
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, classification_report
 from tqdm.auto import tqdm
-from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, LANG_CLUSTER, F1_BEST_STATE, MODEL_SAVE_DIR, TEST_MODE
+from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, F1_BEST_STATE, MODEL_SAVE_DIR, TEST_MODE
 from moe.MoE_mulvuln_model import MoE_VulnerabilityDetector
 # LOGGING SETUP 
 log_dir = Path("logs")
@@ -46,59 +46,27 @@ class PrintLogger:
 
 # Redirect print to logging
 original_print = print
-def print(*args, **kwargs):
+def print(*args):
     message = ' '.join(str(arg) for arg in args)
     log.info(message)
 
 
-# Loss & Metrics
-def focal_loss(logits, targets, alpha=0.25, gamma=2.0, label_smoothing=0.0, pos_weight=None):
-    """Focal Loss with label smoothing and class weighting for handling class imbalance"""
-    # Apply label smoothing
-    if label_smoothing > 0:
-        targets = targets * (1 - label_smoothing) + 0.5 * label_smoothing
-    
-    # Apply class weighting if provided
-    if pos_weight is not None:
-        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none', pos_weight=pos_weight)
-    else:
-        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
-    
-    probs = torch.sigmoid(logits)
-    pt = targets * probs + (1 - targets) * (1 - probs)
-    focal_weight = (1 - pt) ** gamma
-    loss = focal_weight * bce_loss
-    return loss.mean()
-
 def moe_multitask_loss(binary_logits, binary_targets, router_logits, cwe_labels,
                        fraction_routed, prob_per_expert, num_experts, 
-                       pos_weight=None, use_focal=True, label_smoothing=0.05, alpha=0.005, beta=0.2, expert_aux_loss=None):
-    """Improved loss function with class weighting, focal loss, and label smoothing
-    
-    Changes from baseline to match performance:
-    - Reduced label_smoothing: 0.1 -> 0.05 (less aggressive)
-    - Reduced alpha (aux loss weight): 0.01 -> 0.005 (focus more on main task)
-    - Reduced beta (CWE loss weight): 0.3 -> 0.2 (focus more on binary classification)
-    - Pass pos_weight to focal_loss for class balance
-    - Incorporate expert_aux_loss (from MulVulAssistant language alignment)
-    """
-    if use_focal:
-        # Pass pos_weight to focal loss for better class balance (like baseline)
-        bce_loss = focal_loss(binary_logits, binary_targets, alpha=0.25, gamma=2.0, 
-                             label_smoothing=label_smoothing, pos_weight=pos_weight)
+                       pos_weight=None, alpha=0.005, beta=0.2, expert_aux_loss=None):
+   
+    if pos_weight is not None:
+        bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets, pos_weight=pos_weight)
     else:
-        if pos_weight is not None:
-            bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets, pos_weight=pos_weight)
-        else:
-            bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets)
+        bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets)
     
-    # Less aggressive label smoothing for CWE classification
+    # Less aggressive label smoothing for classification
     ce_loss_cwe = F.cross_entropy(router_logits, cwe_labels, label_smoothing=0.02)
     
-    # Load balancing auxiliary loss (reduced weight)
+    # Load balancing auxiliary loss
     aux_loss = num_experts * torch.sum(fraction_routed * prob_per_expert)
     
-    # Expert auxiliary loss (MulVulAssistant language alignment)
+    # Expert auxiliary loss (MulVulAssistant)
     if expert_aux_loss is None:
         expert_aux_loss = torch.tensor(0.0, device=binary_logits.device)
     
@@ -124,18 +92,6 @@ def calculate_macro_f1_score(preds, targets):
     )
 
     return float(f1), float(precision), float(recall)
-
-def calculate_f1_score(preds, targets):
-    """Calculate F1 score"""
-    tp = ((preds == 1) & (targets == 1)).sum()
-    fp = ((preds == 1) & (targets == 0)).sum()
-    fn = ((preds == 0) & (targets == 1)).sum()
-    
-    precision = tp / (tp + fp + 1e-8)
-    recall = tp / (tp + fn + 1e-8)
-    f1 = 2 * precision * recall / (precision + recall + 1e-8)
-    
-    return f1.item(), precision.item(), recall.item()
 
 def find_optimal_threshold(model, data_loader, device):
     """Find optimal classification threshold using F1 score on validation set"""
@@ -170,7 +126,6 @@ def find_optimal_threshold(model, data_loader, device):
     all_probs = np.array(all_probs).flatten()
     all_targets = np.array(all_targets).flatten()
 
-    # Debug: Print probability distribution
     print(f"\nProbability distribution:")
     print(f"  Min: {all_probs.min():.4f}, Max: {all_probs.max():.4f}")
     print(f"  Mean: {all_probs.mean():.4f}, Std: {all_probs.std():.4f}")
@@ -181,7 +136,6 @@ def find_optimal_threshold(model, data_loader, device):
     best_f1 = 0.0
     best_metrics = {}
 
-    # Search with finer granularity
     thresholds_to_try = np.arange(0.05, 0.95, 0.02)
 
     print(f"\nSearching optimal threshold...")
@@ -823,9 +777,7 @@ def run_pipeline():
                 )
                 loss, bce, ce, aux = moe_multitask_loss(logits, vuln, router_logits, lang_cluster,
                                                         frac_routed, prob_exp, num_experts=num_experts, 
-                                                        pos_weight=pos_weight, use_focal=True,
-                                                        label_smoothing=0.05,
-                                                        alpha=0.005, beta=0.2, expert_aux_loss=aux_loss_expert)
+                                                        pos_weight=pos_weight, alpha=0.005, beta=0.2, expert_aux_loss=aux_loss_expert)
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -876,9 +828,7 @@ def run_pipeline():
                     )
                     loss, _, _, _ = moe_multitask_loss(logits, vuln, router_logits, lang_cluster,
                                                         frac_routed, prob_exp, num_experts=num_experts,
-                                                        pos_weight=pos_weight, use_focal=True,
-                                                        label_smoothing=0.05,
-                                                        alpha=0.005, beta=0.2, expert_aux_loss=aux_loss_expert)
+                                                        pos_weight=pos_weight, alpha=0.005, beta=0.2, expert_aux_loss=aux_loss_expert)
 
                     val_loss += loss.item()
                     val_acc += calculate_accuracy(logits, vuln).item()

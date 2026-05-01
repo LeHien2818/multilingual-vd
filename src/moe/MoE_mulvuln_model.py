@@ -43,11 +43,11 @@ class MulVulAssistant(nn.Module):
         self.temperature = temperature
         self.num_langs = num_langs
         
-        # Language-specific learnable parameter pools
+        # Learnable parameter pools
         self.parameter_pool = nn.Parameter(
             torch.randn(num_langs, pool_length, input_dim) * 0.02
         )
-        # Language keys for attention-based pool selection
+        # Language keys
         self.keys = nn.Parameter(
             torch.randn(num_langs, input_dim) * 0.02
         )
@@ -94,17 +94,17 @@ class MulVulAssistant(nn.Module):
         cls_query = raw_embeds[:, 0, :]
         
         if language_ids is not None:
-            # Use provided language IDs for pool selection
+            
             pool = self.parameter_pool[language_ids]  # (batch_size, pool_length, input_dim)
             
-            # Compute auxiliary loss: alignment with language key
+            # Auxiliary loss
             query_norm = F.normalize(cls_query, p=2, dim=1)  # (batch_size, input_dim)
             keys_norm = F.normalize(self.keys, p=2, dim=1)  # (num_langs, input_dim)
             selected_keys = keys_norm[language_ids]  # (batch_size, input_dim)
             cosine_sim = torch.sum(query_norm * selected_keys, dim=1)  # (batch_size,)
             aux_loss = (1.0 - cosine_sim).mean()
         else:
-            # Learn routing via attention over language keys
+            
             query_norm = F.normalize(cls_query, p=2, dim=1)
             keys_norm = F.normalize(self.keys, p=2, dim=1)
             scores = torch.matmul(query_norm, keys_norm.transpose(0, 1)) / self.temperature  # (batch_size, num_langs)
@@ -126,7 +126,7 @@ class MulVulAssistant(nn.Module):
         outputs = self.backbone(inputs_embeds=new_embeds, attention_mask=new_mask)
         hidden_states = outputs.last_hidden_state
 
-        # Mean pooling trên pool tokens
+        # Mean pooling pool tokens
         pool_hidden = hidden_states[:, 0:self.pool_length, :]
         final_repr = pool_hidden.mean(dim=1)
 
@@ -163,7 +163,7 @@ class MoE_VulnerabilityDetector(nn.Module):
         self.expert_python_idx = 1
         self.expert_vulpy_idx = 2
         
-        # Add CodeBERT encoder to the model (like baseline)
+        # Add CodeBERT encoder
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(encoder_name)
             self.encoder = AutoModel.from_pretrained(encoder_name)
@@ -234,7 +234,7 @@ class MoE_VulnerabilityDetector(nn.Module):
                     )
                 if raw_input_ids is None or raw_attention_mask is None:
                     raise ValueError("raw_input_ids and raw_attention_mask are required for MulVulAssistant")
-                logit, _ = expert(raw_input_ids, raw_attention_mask, language_ids=lang_ids)  # unpack aux_loss
+                logit, _ = expert(raw_input_ids, raw_attention_mask, language_ids=lang_ids) 
                 expert_outputs.append(logit)
             else:
                 expert_outputs.append(expert(x_norm))
@@ -242,7 +242,7 @@ class MoE_VulnerabilityDetector(nn.Module):
         return torch.cat(expert_outputs, dim=1)
 
     def encode_code(self, code_strings, device):
-        """Encode code strings to embeddings using CodeBERT (on-the-fly, trainable)"""
+        """Encode code strings to embeddings"""
         if self.encoder is None:
             raise ValueError("Encoder not loaded")
         
@@ -287,7 +287,7 @@ class MoE_VulnerabilityDetector(nn.Module):
         fraction_routed = routing_weights.gt(0).float().mean(dim=0)
         prob_per_expert = routing_probs.mean(dim=0)
 
-        # Map language strings to language IDs for MulVulAssistant
+        # Map language strings to language IDs
         language_id_map = {"python": 0, "ccpp": 1}
         
         # Vectorized expert processing
