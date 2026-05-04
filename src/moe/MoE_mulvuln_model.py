@@ -52,26 +52,6 @@ class MulVulAssistant(nn.Module):
             torch.randn(num_langs, input_dim) * 0.02
         )
         
-        # Classification head
-        self.classifier = nn.Sequential(
-            nn.LayerNorm(input_dim),
-            nn.Linear(input_dim, hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout_rate),
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.GELU(),
-            nn.Dropout(dropout_rate),
-            nn.LayerNorm(hidden_dim // 2),
-            nn.Linear(hidden_dim // 2, 1)
-        )
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.classifier:
-            if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
-                nn.init.zeros_(m.bias)
 
     def forward(self, input_ids, attention_mask, language_ids=None):
         """Forward pass with language-specific parameter pool routing.
@@ -123,16 +103,10 @@ class MulVulAssistant(nn.Module):
                                device=attention_mask.device)
         new_mask = torch.cat([pool_mask, attention_mask_truncated], dim=1)
 
-        outputs = self.backbone(inputs_embeds=new_embeds, attention_mask=new_mask)
-        hidden_states = outputs.last_hidden_state
-
-        # Mean pooling pool tokens
-        pool_hidden = hidden_states[:, 0:self.pool_length, :]
-        final_repr = pool_hidden.mean(dim=1)
-
-        logits = self.classifier(final_repr)
+        self.backbone(inputs_embeds=new_embeds, attention_mask=new_mask)
         
-        return logits, aux_loss
+        
+        return aux_loss
 
 # Router
 class TopKRouter(nn.Module):
@@ -161,7 +135,7 @@ class MoE_VulnerabilityDetector(nn.Module):
         self.num_experts = num_experts
         self.expert_ccpp_idx = 0
         self.expert_python_idx = 1
-        self.expert_vulpy_idx = 2
+        self.expert_mulvuln_idx = 2
         
         # Add CodeBERT encoder
         try:
@@ -199,7 +173,7 @@ class MoE_VulnerabilityDetector(nn.Module):
             if language_lower == "python":
                 updated_weights[i].zero_()
                 updated_weights[i, self.expert_python_idx] = 0.5
-                updated_weights[i, self.expert_vulpy_idx] = 0.5
+                updated_weights[i, self.expert_mulvuln_idx] = 0.5
                 continue
 
             if language_lower == "ccpp":
@@ -211,31 +185,21 @@ class MoE_VulnerabilityDetector(nn.Module):
                 if is_vulnerable and cwe_id in cwe_dpy_set:
                     updated_weights[i].zero_()
                     updated_weights[i, self.expert_ccpp_idx] = 0.5
-                    updated_weights[i, self.expert_vulpy_idx] = 0.5
+                    updated_weights[i, self.expert_mulvuln_idx] = 0.5
                 else:
                     updated_weights[i].zero_()
                     updated_weights[i, self.expert_ccpp_idx] = 1.0
 
         return updated_weights
 
-    def get_expert_logits(self, x, languages=None, raw_input_ids=None, raw_attention_mask=None):
+    def get_expert_logits(self, x):
         """Return per-expert logits for language-based inference policy."""
         x_norm = self.input_norm(x)
         expert_outputs = []
-        language_id_map = {"python": 0, "ccpp": 1}
         
         for i, expert in enumerate(self.experts):
-            if i == self.expert_vulpy_idx and isinstance(expert, MulVulAssistant):
-                lang_ids = None
-                if languages is not None:
-                    lang_ids = torch.tensor(
-                        [language_id_map.get(str(languages[j]).strip().lower(), 0) for j in range(len(languages))],
-                        device=x_norm.device, dtype=torch.long
-                    )
-                if raw_input_ids is None or raw_attention_mask is None:
-                    raise ValueError("raw_input_ids and raw_attention_mask are required for MulVulAssistant")
-                logit, _ = expert(raw_input_ids, raw_attention_mask, language_ids=lang_ids) 
-                expert_outputs.append(logit)
+            if i == self.expert_mulvuln_idx and isinstance(expert, MulVulAssistant):
+                continue
             else:
                 expert_outputs.append(expert(x_norm))
         
@@ -298,7 +262,7 @@ class MoE_VulnerabilityDetector(nn.Module):
                 # weights = routing_weights[expert_mask, i].unsqueeze(1)
                 
                 # Handling for MulVulAssistant
-                if i == self.expert_vulpy_idx and isinstance(expert, MulVulAssistant):
+                if i == self.expert_mulvuln_idx and isinstance(expert, MulVulAssistant):
                     lang_ids = None
                     if languages is not None:
                         lang_ids = torch.tensor(
@@ -308,8 +272,9 @@ class MoE_VulnerabilityDetector(nn.Module):
                         )
                     if raw_input_ids is None or raw_attention_mask is None:
                         raise ValueError("raw_input_ids and raw_attention_mask are required for MulVulAssistant")
-                    expert_outputs, aux_loss = expert(raw_input_ids[expert_mask], raw_attention_mask[expert_mask], language_ids=lang_ids)
+                    aux_loss = expert(raw_input_ids[expert_mask], raw_attention_mask[expert_mask], language_ids=lang_ids)
                     total_aux_loss = total_aux_loss + aux_loss
+                    continue
                 else:
                     expert_outputs = expert(expert_inputs)
                 
