@@ -52,7 +52,7 @@ def print(*args):
 
 
 
-def moe_multitask_loss(binary_logits, binary_targets, router_logits, cwe_labels,
+def moe_multitask_loss(binary_logits, binary_targets, router_logits, language_labels,
                        fraction_routed, prob_per_expert, num_experts, 
                        pos_weight=None, alpha=0.005, beta=0.2):
    
@@ -62,13 +62,13 @@ def moe_multitask_loss(binary_logits, binary_targets, router_logits, cwe_labels,
         bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets)
     
     # Less aggressive label smoothing for classification
-    ce_loss_cwe = F.cross_entropy(router_logits, cwe_labels, label_smoothing=0.02)
+    ce_loss_language = F.cross_entropy(router_logits, language_labels, label_smoothing=0.02)
     
     # Load balancing auxiliary loss
     aux_loss = num_experts * torch.sum(fraction_routed * prob_per_expert)
     
-    total_loss = bce_loss + beta * ce_loss_cwe + alpha * aux_loss
-    return total_loss, bce_loss, ce_loss_cwe, aux_loss
+    total_loss = bce_loss + beta * ce_loss_language + alpha * aux_loss
+    return total_loss, bce_loss, ce_loss_language, aux_loss
 
 def calculate_accuracy(logits, targets, threshold=0.5):
     probs = torch.sigmoid(logits)
@@ -298,14 +298,22 @@ def evaluate_by_group(model, data_loader, device, group_getter, threshold=0.5):
         for code_batch, vuln, cwe, cluster_type, languages in data_loader:
             emb = model.encode_code(code_batch, device)
             vuln, cwe = vuln.to(device), cwe.to(device)
-            logits, _, _, _ = model(emb)
+            _, _, _, router_logits = model(emb)
 
-            probs = torch.sigmoid(logits)
-            preds = (probs > threshold).float()
+            routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
+            expert_logits_all = model.get_expert_logits(
+                emb,
+                routed_expert_ids=routed_clusters
+            )
 
-            for i in range(len(cwe)):
+            expert_probs_all = torch.sigmoid(expert_logits_all)
+
+            for i in range(len(code_batch)):
                 group_name = group_getter(int(cwe[i].item()), str(languages[i]))
-                pred = preds[i].item()
+                # routed_id = int(routed_clusters[i])
+                sample_prob = float(expert_probs_all.reshape(-1)[i].item())
+
+                pred = 1.0 if sample_prob > threshold else 0.0
                 target = vuln[i].item()
                 _update_group_metrics(group_metrics, group_name, pred, target)
 
@@ -380,12 +388,16 @@ def build_tqdm(iterable, desc, unit, leave=False):
 def load_raw_data(file_path):
     """Load C code data from JSONL file"""
     data = []
+    cnt = 0
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
+                if cnt == 1:
+                    break
                 if line.strip():
                     item = json.loads(line)
                     data.append(item)
+                    cnt += 1
         print(f"Loaded {len(data)} samples from {file_path}")
     except FileNotFoundError:
         print(f"Warning: File not found at {file_path}.")
@@ -855,7 +867,7 @@ def run_pipeline():
         f.write(f"{'ID':<5} {'Pred':<6} {'Real':<6} {'Prob':<10} {'CWE':<5} {'Lang':<10} {'OK':<5}\n")
         f.write("-"*77 + "\n")
         for i in range(min(10, len(test_predictions))):
-            is_correct = "✓" if test_predictions[i] == test_labels[i] else "✗"
+            is_correct = "yes" if test_predictions[i] == test_labels[i] else "no"
             f.write(f"{i:<5} {int(test_predictions[i]):<6} {int(test_labels[i]):<6} "
                    f"{test_probabilities[i]:<10.4f} {int(test_cwe_labels[i]):<5} {str(test_language_labels[i]):<10} {is_correct:<5}\n")
     
@@ -866,7 +878,7 @@ def run_pipeline():
     print(f"{'Sample':<8} {'Predicted':<12} {'Real':<8} {'Probability':<12} {'CWE':<6} {'Lang':<10} {'Correct':<9}")
     print("-" * 77)
     for i in range(min(10, len(test_predictions))):
-        is_correct = "✓" if test_predictions[i] == test_labels[i] else "✗"
+        is_correct = "yes" if test_predictions[i] == test_labels[i] else "no"
         print(f"{i:<8} {int(test_predictions[i]):<12} {int(test_labels[i]):<8} "
               f"{test_probabilities[i]:<12.4f} {int(test_cwe_labels[i]):<6} {str(test_language_labels[i]):<10} {is_correct:<9}")
 

@@ -5,9 +5,9 @@ from transformers import AutoTokenizer, AutoModel
 
 
 # Expert
-class CWE_Expert(nn.Module):
+class Language_Expert(nn.Module):
     def __init__(self, input_dim, hidden_dim, dropout_rate=0.1):
-        super(CWE_Expert, self).__init__()
+        super(Language_Expert, self).__init__()
         self.net = nn.Sequential(
             nn.LayerNorm(input_dim),
             nn.Linear(input_dim, hidden_dim),
@@ -54,18 +54,6 @@ class MulVulAssistant(nn.Module):
         
 
     def forward(self, input_ids, attention_mask, language_ids=None):
-        """Forward pass with language-specific parameter pool routing.
-        
-        Args:
-            input_ids: Token IDs of shape (batch_size, seq_len)
-            attention_mask: Attention mask of shape (batch_size, seq_len)
-            language_ids: Optional language IDs for routing (0=Python, 1=CCPP)
-                         If None, learns routing from input
-        
-        Returns:
-            logits: Vulnerability predictions (batch_size, 1)
-            aux_loss: Language alignment auxiliary loss (scalar)
-        """
         if self.backbone is None:
             raise ValueError("MulVulAssistant requires a valid pretrained backbone")
 
@@ -109,9 +97,9 @@ class MulVulAssistant(nn.Module):
         return aux_loss
 
 # Router
-class TopKRouter(nn.Module):
+class Router(nn.Module):
     def __init__(self, input_dim, num_experts, top_k=1):
-        super(TopKRouter, self).__init__()
+        super(Router, self).__init__()
         self.num_experts = num_experts
         self.top_k = min(top_k, num_experts)
         self.norm = nn.LayerNorm(input_dim)
@@ -151,7 +139,7 @@ class MoE_VulnerabilityDetector(nn.Module):
             self.tokenizer = None
         
         self.input_norm = nn.LayerNorm(input_dim)
-        self.router = TopKRouter(input_dim, num_experts, top_k)
+        self.router = Router(input_dim, num_experts, top_k)
         
         # Initialize experts: CCPP (0), Python (1), Mulvul (2) 
         self.experts = nn.ModuleList()
@@ -160,7 +148,7 @@ class MoE_VulnerabilityDetector(nn.Module):
                 self.experts.append(MulVulAssistant(pretrained_model=self.encoder, input_dim=input_dim, hidden_dim=hidden_dim,
                                                  num_langs=2, pool_length=5, dropout_rate=dropout_rate))
             else:
-                self.experts.append(CWE_Expert(input_dim=input_dim, hidden_dim=hidden_dim, dropout_rate=dropout_rate))
+                self.experts.append(Language_Expert(input_dim=input_dim, hidden_dim=hidden_dim, dropout_rate=dropout_rate))
 
     def _apply_data_routing(self, routing_weights, languages=None, vuln_labels=None, cwe_labels=None, cwe_dpy_set=None):
         if languages is None:
@@ -192,16 +180,17 @@ class MoE_VulnerabilityDetector(nn.Module):
 
         return updated_weights
 
-    def get_expert_logits(self, x):
+    def get_expert_logits(self, x, routed_expert_ids=None):
         """Return per-expert logits for language-based inference policy."""
         x_norm = self.input_norm(x)
         expert_outputs = []
         
-        for i, expert in enumerate(self.experts):
-            if i == self.expert_mulvuln_idx and isinstance(expert, MulVulAssistant):
-                continue
+        for i in range(len(x)):
+            if routed_expert_ids is not None:
+                expert_id = int(routed_expert_ids[i])
+                expert_outputs.append(self.experts[expert_id](x_norm[i:i+1]))
             else:
-                expert_outputs.append(expert(x_norm))
+                raise ValueError("routed_expert_ids must be provided for get_expert_logits")
         
         return torch.cat(expert_outputs, dim=1)
 
@@ -252,7 +241,7 @@ class MoE_VulnerabilityDetector(nn.Module):
         prob_per_expert = routing_probs.mean(dim=0)
 
         # Map language strings to language IDs
-        language_id_map = {"python": 0, "ccpp": 1}
+        language_id_map = {"python": 1, "ccpp": 0}
         
         # Vectorized expert processing
         for i, expert in enumerate(self.experts):

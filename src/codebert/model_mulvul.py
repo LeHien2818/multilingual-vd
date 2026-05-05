@@ -73,7 +73,7 @@ class Model(nn.Module):
         outputs = self.backbone(inputs_embeds=new_embeds, attention_mask=new_mask)
         hidden_states = outputs.last_hidden_state
 
-        # Mean pooling trên pool tokens
+        # Mean pooling pool tokens
         pool_hidden = hidden_states[:, 0:self.pool_length, :]
         final_repr = pool_hidden.mean(dim=1)
 

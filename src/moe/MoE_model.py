@@ -4,9 +4,9 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel
 
 
-class CWE_Expert(nn.Module):
+class Language_Expert(nn.Module):
     def __init__(self, input_dim, hidden_dim, dropout_rate=0.1):
-        super(CWE_Expert, self).__init__()
+        super(Language_Expert, self).__init__()
         self.net = nn.Sequential(
             nn.LayerNorm(input_dim),
             nn.Linear(input_dim, hidden_dim),
@@ -31,9 +31,9 @@ class CWE_Expert(nn.Module):
         return self.net(x)
 
 # ROUTER
-class TopKRouter(nn.Module):
+class Router(nn.Module):
     def __init__(self, input_dim, num_experts, top_k=1):
-        super(TopKRouter, self).__init__()
+        super(Router, self).__init__()
         self.num_experts = num_experts
         self.top_k = min(top_k, num_experts)
         self.norm = nn.LayerNorm(input_dim)
@@ -70,8 +70,8 @@ class MoE_VulnerabilityDetector(nn.Module):
             self.tokenizer = None
         
         self.input_norm = nn.LayerNorm(input_dim)
-        self.router = TopKRouter(input_dim, num_experts, top_k)
-        self.experts = nn.ModuleList([CWE_Expert(input_dim, hidden_dim, dropout_rate) for _ in range(num_experts)])
+        self.router = Router(input_dim, num_experts, top_k)
+        self.experts = nn.ModuleList([Language_Expert(input_dim, hidden_dim, dropout_rate) for _ in range(num_experts)])
 
     def encode_code(self, code_strings, device):
         """Encode code strings to embeddings using CodeBERT (on-the-fly, trainable)"""
@@ -97,6 +97,20 @@ class MoE_VulnerabilityDetector(nn.Module):
         embeddings = sum_hidden / sum_mask
         
         return embeddings
+    
+    def get_expert_logits(self, x, routed_expert_ids=None):
+        """Return per-expert logits for language-based inference policy."""
+        x_norm = self.input_norm(x)
+        expert_outputs = []
+        
+        for i in range(len(x)):
+            if routed_expert_ids is not None:
+                expert_id = int(routed_expert_ids[i])
+                expert_outputs.append(self.experts[expert_id](x_norm[i:i+1]))
+            else:
+                raise ValueError("routed_expert_ids must be provided for get_expert_logits")
+        
+        return torch.cat(expert_outputs, dim=1)
 
     def forward(self, x):
         x_orig = x

@@ -15,7 +15,7 @@ from collections import Counter
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, classification_report
 from tqdm.auto import tqdm
 from config_moe import BATCH_SIZE, EPOCHS, TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH, F1_BEST_STATE, MODEL_SAVE_DIR, TEST_MODE
-from moe.MoE_mulvuln_model import MoE_VulnerabilityDetector
+from MoE_mulvuln_model import MoE_VulnerabilityDetector
 # LOGGING SETUP 
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
@@ -51,7 +51,7 @@ def print(*args):
     log.info(message)
 
 
-def moe_multitask_loss(binary_logits, binary_targets, router_logits, cwe_labels,
+def moe_multitask_loss(binary_logits, binary_targets, router_logits, language_labels,
                        fraction_routed, prob_per_expert, num_experts, 
                        pos_weight=None, alpha=0.005, beta=0.2, expert_aux_loss=None):
    
@@ -61,7 +61,7 @@ def moe_multitask_loss(binary_logits, binary_targets, router_logits, cwe_labels,
         bce_loss = F.binary_cross_entropy_with_logits(binary_logits, binary_targets)
     
     # Less aggressive label smoothing for classification
-    ce_loss_cwe = F.cross_entropy(router_logits, cwe_labels, label_smoothing=0.02)
+    ce_loss_language = F.cross_entropy(router_logits, language_labels, label_smoothing=0.02)
     
     # Load balancing auxiliary loss
     aux_loss = num_experts * torch.sum(fraction_routed * prob_per_expert)
@@ -70,8 +70,8 @@ def moe_multitask_loss(binary_logits, binary_targets, router_logits, cwe_labels,
     if expert_aux_loss is None:
         expert_aux_loss = torch.tensor(0.0, device=binary_logits.device)
     
-    total_loss = bce_loss + beta * ce_loss_cwe + alpha * aux_loss + 0.8 * expert_aux_loss
-    return total_loss, bce_loss, ce_loss_cwe, aux_loss
+    total_loss = bce_loss + beta * ce_loss_language + alpha * aux_loss + 0.8 * expert_aux_loss
+    return total_loss, bce_loss, ce_loss_language, aux_loss
 
 def calculate_accuracy(logits, targets, threshold=0.5):
     probs = torch.sigmoid(logits)
@@ -107,19 +107,17 @@ def find_optimal_threshold(model, data_loader, device):
                 raw_input_ids=input_ids,
                 raw_attention_mask=attention_mask,
             )
+            routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
             expert_logits_all = model.get_expert_logits(
                 emb,
-                raw_input_ids=input_ids,
-                raw_attention_mask=attention_mask,
+                routed_expert_ids=routed_clusters
             )
 
-            
-            routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
             expert_probs_all = torch.sigmoid(expert_logits_all)
             
             for i in range(len(code_batch)):
-                routed_cluster = routed_clusters[i]
-                expert_prob = expert_probs_all[i, routed_cluster].item()
+                # routed_cluster = routed_clusters[i]
+                expert_prob = expert_probs_all.reshape(-1)[i].item()
                 all_probs.append(expert_prob)
             all_targets.extend(vuln.numpy())
 
@@ -351,20 +349,19 @@ def evaluate_by_group(model, data_loader, device, group_getter, threshold=0.5):
                 raw_input_ids=input_ids,
                 raw_attention_mask=attention_mask,
             )
+            routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
             expert_logits_all = model.get_expert_logits(
                 emb,
-                raw_input_ids=input_ids,
-                raw_attention_mask=attention_mask,
+                routed_expert_ids=routed_clusters
             )
             
-            routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
             expert_probs_all = torch.sigmoid(expert_logits_all)
             
 
-            for i in range(len(cwe)):
+            for i in range(len(code_batch)):
                 group_name = group_getter(int(cwe[i].item()), str(languages[i]))
-                routed_id = int(routed_clusters[i])
-                sample_prob = float(expert_probs_all[i, routed_id].item())
+                # routed_id = int(routed_clusters[i])
+                sample_prob = float(expert_probs_all.reshape(-1)[i].item())
 
                 pred = 1.0 if sample_prob > threshold else 0.0
                 target = vuln[i].item()
@@ -771,7 +768,7 @@ def run_pipeline():
                     vuln_labels=vuln,
                     cwe_labels=cwe,
                     cwe_dpy_set=cwe_dpy_set,
-                    apply_special_routing=True,
+                    apply_data_routing=True,
                     raw_input_ids=input_ids,
                     raw_attention_mask=attention_mask,
                 )
@@ -822,7 +819,7 @@ def run_pipeline():
                         vuln_labels=vuln,
                         cwe_labels=cwe,
                         cwe_dpy_set=cwe_dpy_set,
-                        apply_special_routing=True,
+                        apply_data_routing=True,
                         raw_input_ids=input_ids,
                         raw_attention_mask=attention_mask,
                     )
@@ -943,26 +940,22 @@ def run_pipeline():
         for code_batch, vuln, cwe, cluster_type, languages in test_loader:
             emb, input_ids, attention_mask = model.encode_code(code_batch, device)
             vuln, cwe = vuln.to(device), cwe.to(device)
-            
            
-            logits, _, _, router_logits, _ = model(
+            _, _, _, router_logits, _ = model(
                 emb,
                 raw_input_ids=input_ids,
                 raw_attention_mask=attention_mask,
             )
             
+            routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
             
             expert_logits_all = model.get_expert_logits(
                 emb,
-                raw_input_ids=input_ids,
-                raw_attention_mask=attention_mask,
+                routed_expert_ids=routed_clusters
             )
 
-            probs = torch.sigmoid(logits)
+            probs = torch.sigmoid(expert_logits_all)
             expert_probs_all = torch.sigmoid(expert_logits_all)
-            
-            
-            routed_clusters = torch.argmax(router_logits, dim=1).cpu().numpy().tolist()
             
           
             test_probabilities.extend(probs.cpu().numpy().flatten().tolist())
@@ -1041,64 +1034,6 @@ def run_pipeline():
         )
     print(f"  Language cluster mapping saved to {cluster_map_file}")
     
-    # ROUTED-EXPERT PREDICTION/REPORT FILES
-    
-    # Evaluate each expert on the subset of samples routed to that expert by router argmax
-    test_expert_probs_np = np.array(test_expert_prob_rows)
-    routed_expert_np = np.array(test_routed_clusters)
-
-    for expert_id in range(num_experts):
-        # Evaluate expert 2 on samples routed to expert 1.
-        routed_source_expert = 1 if expert_id == 2 else expert_id
-        routed_indices = np.where(routed_expert_np == routed_source_expert)[0]
-        
-        pred_file_expert = results_dir / f"prediction_file_expert_{expert_id}_{timestamp}.jsonl"
-        with open(pred_file_expert, "w") as f:
-            for idx in routed_indices:
-                expert_prob = float(test_expert_probs_np[idx, expert_id])
-                
-                expert_pred = int(expert_prob >= optimal_threshold)
-                pred_data = {
-                    "sample_id": int(idx),
-                    "routed_expert": int(expert_id),
-                    "routed_source_expert": int(routed_source_expert),
-                    "predicted_label": expert_pred,
-                    "real_label": int(test_labels[idx]),
-                    "probability": expert_prob,
-                    "cwe_id": int(test_cwe_labels[idx]),
-                    "language": str(test_language_labels[idx]),
-                    "is_correct": expert_pred == int(test_labels[idx])
-                }
-                f.write(json.dumps(pred_data) + "\n")
-        print(f" Expert {expert_id} routed prediction file saved to {pred_file_expert}")
-
-        result_file_expert = results_dir / f"result_file_expert_{expert_id}_{timestamp}.txt"
-        with open(result_file_expert, "w", encoding="utf-8") as f:
-            f.write(f"MoE Inference Result Summary - Routed Expert {expert_id}\n")
-            f.write("=" * 60 + "\n")
-            f.write(f"routed_samples: {len(routed_indices)}\n")
-
-            if len(routed_indices) == 0:
-                f.write("No routed samples for this expert.\n")
-            else:
-                expert_labels = test_labels_np[routed_indices].astype(int)
-                expert_probs = test_expert_probs_np[routed_indices, expert_id]
-                expert_preds = (expert_probs >= optimal_threshold).astype(int)
-
-                macro_precision_ex, macro_recall_ex, macro_f1_ex, _ = precision_recall_fscore_support(
-                    expert_labels, expert_preds, average="macro", zero_division=0
-                )
-                overall_accuracy_ex = accuracy_score(expert_labels, expert_preds)
-
-                f.write(f"macro f1: {macro_f1_ex:.6f}\n")
-                f.write(f"macro precision: {macro_precision_ex:.6f}\n")
-                f.write(f"accuracy: {overall_accuracy_ex:.6f}\n")
-                f.write(f"macro recall: {macro_recall_ex:.6f}\n\n")
-                f.write("Classification report\n")
-                f.write(classification_report(expert_labels, expert_preds, digits=6, zero_division=0))
-        print(f" Expert {expert_id} routed result file saved to {result_file_expert}")
-    
-    # Keep original combined prediction file for compatibility
     pred_file = results_dir / f"test_predictions_{timestamp}.jsonl"
     print(f"Saving combined test predictions to {pred_file}...")
     with open(pred_file, "w") as f:
@@ -1128,7 +1063,7 @@ def run_pipeline():
         f.write(f"{'ID':<5} {'Pred':<6} {'Real':<6} {'Prob':<10} {'CWE':<5} {'Lang':<10} {'OK':<5}\n")
         f.write("-"*77 + "\n")
         for i in range(min(10, len(test_predictions))):
-            is_correct = "✓" if test_predictions[i] == test_labels[i] else "✗"
+            is_correct = "yes" if test_predictions[i] == test_labels[i] else "no"
             f.write(f"{i:<5} {int(test_predictions[i]):<6} {int(test_labels[i]):<6} "
                    f"{test_probabilities[i]:<10.4f} {int(test_cwe_labels[i]):<5} {str(test_language_labels[i]):<10} {is_correct:<5}\n")
     
@@ -1176,7 +1111,7 @@ def run_pipeline():
     print(f"{'Sample':<8} {'Predicted':<12} {'Real':<8} {'Probability':<12} {'CWE':<6} {'Lang':<10} {'Correct':<9}")
     print("-" * 77)
     for i in range(min(10, len(test_predictions))):
-        is_correct = "✓" if test_predictions[i] == test_labels[i] else "✗"
+        is_correct = "yes" if test_predictions[i] == test_labels[i] else "no"
         print(f"{i:<8} {int(test_predictions[i]):<12} {int(test_labels[i]):<8} "
               f"{test_probabilities[i]:<12.4f} {int(test_cwe_labels[i]):<6} {str(test_language_labels[i]):<10} {is_correct:<9}")
 
