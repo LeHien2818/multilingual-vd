@@ -401,24 +401,6 @@ def evaluate_by_language_cwe(model, data_loader, device, threshold=0.5):
         threshold=threshold,
     )
 
-def precompute_embeddings(data_list, encoder, device, batch_size=BATCH_SIZE):
-    """Pre-compute all embeddings to avoid redundant encoding during training"""
-    print("Pre-computing embeddings...")
-    embeddings = []
-
-    for i in range(0, len(data_list), batch_size):
-        batch = data_list[i:i+batch_size]
-        batch_embeddings = []
-
-        for item in batch:
-            emb = encoder.encode(item["code"])
-            batch_embeddings.append(emb)
-
-        embeddings.extend(batch_embeddings)
-        print(f"Pre-computed {min(i+batch_size, len(data_list))}/{len(data_list)} embeddings")
-
-    return embeddings
-
 
 def build_tqdm(iterable, desc, unit, leave=False):
     """Create a tqdm progress bar that behaves well on both TTY and non-TTY terminals."""
@@ -466,24 +448,6 @@ def evaluate_by_language_cwe(model, data_loader, device, threshold=0.5):
         threshold=threshold,
     )
 
-def precompute_embeddings(data_list, encoder, device, batch_size=BATCH_SIZE):
-    """Pre-compute all embeddings to avoid redundant encoding during training"""
-    print("Pre-computing embeddings...")
-    embeddings = []
-    
-    for i in range(0, len(data_list), batch_size):
-        batch = data_list[i:i+batch_size]
-        batch_embeddings = []
-        
-        for item in batch:
-            emb = encoder.encode(item["code"])
-            batch_embeddings.append(emb)
-        
-        embeddings.extend(batch_embeddings)
-        print(f"Pre-computed {min(i+batch_size, len(data_list))}/{len(data_list)} embeddings")
-    
-    return embeddings
-
 
 def build_tqdm(iterable, desc, unit, leave=False):
     """Create a tqdm progress bar that behaves well on both TTY and non-TTY terminals."""
@@ -509,46 +473,13 @@ def load_raw_data(file_path):
                 if line.strip():
                     item = json.loads(line)
                     data.append(item)
+                    break
         print(f"Loaded {len(data)} samples from {file_path}")
     except FileNotFoundError:
         print(f"Warning: File not found at {file_path}.")
         return None
     return data
 
-def load_raw_data_py(file_path):
-    """Load Python code data from JSONL file"""
-    data = []
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip():
-                    item = json.loads(line)
-                    if item['language'] == "CCPP":
-                        continue
-                    data.append(item)
-        print(f"Loaded {len(data)} samples from {file_path}")
-    except FileNotFoundError:
-        print(f"Warning: File not found at {file_path}.")
-        return None
-    return data
-
-def load_raw_data_test(file_path):
-    """Load code data from JSONL file"""
-    data = []
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip():
-                    item = json.loads(line)
-                    if item['language'] == "CCPP":
-                        if item['cwe'] not in [22, 78, 79, 89]:
-                            continue
-                    data.append(item)
-        print(f"Loaded {len(data)} samples from {file_path}")
-    except FileNotFoundError:
-        print(f"Warning: File not found at {file_path}.")
-        return None
-    return data
 
 def get_language_label(item):
     language = str(item.get("language", "Unknown")).strip()
@@ -628,7 +559,7 @@ def run_pipeline():
         print(f"Available Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
     print(f"Training samples: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
     
-    # 2. Analyze raw CWE space and build automatic clusters (from full data)
+    # raw CWE space and build automatic clusters 
     print("\nAnalyzing cluster_type distribution...")
     all_data_for_cwe = train_data + val_data + test_data
     raw_num_classes, _, _ = get_num_classes_cwe(all_data_for_cwe, label_field='cluster_type')
@@ -704,8 +635,7 @@ def run_pipeline():
         input_dim=768, 
         hidden_dim=256, 
         num_experts=num_experts, 
-        top_k=1, 
-        dropout_rate=0.1,
+        top_k=1,
         encoder_name="microsoft/codebert-base",
         freeze_encoder=False  # Allow fine-tuning
     ).to(device)
@@ -819,7 +749,7 @@ def run_pipeline():
                         vuln_labels=vuln,
                         cwe_labels=cwe,
                         cwe_dpy_set=cwe_dpy_set,
-                        apply_data_routing=True,
+                        apply_data_routing=False,
                         raw_input_ids=input_ids,
                         raw_attention_mask=attention_mask,
                     )

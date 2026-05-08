@@ -34,7 +34,7 @@ class Language_Expert(nn.Module):
 # MulVul Assistant
 class MulVulAssistant(nn.Module):
     
-    def __init__(self, pretrained_model, input_dim=768, hidden_dim=256, num_langs=2, pool_length=5, dropout_rate=0.1, temperature=0.1):
+    def __init__(self, pretrained_model, input_dim=768, hidden_dim=256, num_langs=2, pool_length=5, temperature=0.1):
         super(MulVulAssistant, self).__init__()
         self.backbone = pretrained_model
         self.input_dim = input_dim
@@ -72,7 +72,6 @@ class MulVulAssistant(nn.Module):
             cosine_sim = torch.sum(query_norm * selected_keys, dim=1)  # (batch_size,)
             aux_loss = (1.0 - cosine_sim).mean()
         else:
-            
             query_norm = F.normalize(cls_query, p=2, dim=1)
             keys_norm = F.normalize(self.keys, p=2, dim=1)
             scores = torch.matmul(query_norm, keys_norm.transpose(0, 1)) / self.temperature  # (batch_size, num_langs)
@@ -146,7 +145,7 @@ class MoE_VulnerabilityDetector(nn.Module):
         for i in range(num_experts):
             if i == 2:  # MulVulAssistant
                 self.experts.append(MulVulAssistant(pretrained_model=self.encoder, input_dim=input_dim, hidden_dim=hidden_dim,
-                                                 num_langs=2, pool_length=5, dropout_rate=dropout_rate))
+                                                 num_langs=2, pool_length=5))
             else:
                 self.experts.append(Language_Expert(input_dim=input_dim, hidden_dim=hidden_dim, dropout_rate=dropout_rate))
 
@@ -157,20 +156,18 @@ class MoE_VulnerabilityDetector(nn.Module):
         updated_weights = routing_weights.clone()
         for i, language in enumerate(languages):
             language_lower = str(language).strip().lower()
-
+            cwe_id = int(cwe_labels[i].item())
             if language_lower == "python":
-                updated_weights[i].zero_()
-                updated_weights[i, self.expert_python_idx] = 0.5
-                updated_weights[i, self.expert_mulvuln_idx] = 0.5
-                continue
+                if cwe_id in cwe_dpy_set:
+                    updated_weights[i].zero_()
+                    updated_weights[i, self.expert_python_idx] = 0.5
+                    updated_weights[i, self.expert_mulvuln_idx] = 0.5
+                else:
+                    updated_weights[i].zero_()
+                    updated_weights[i, self.expert_python_idx] = 1.0        
 
             if language_lower == "ccpp":
-                if vuln_labels is None or cwe_labels is None or cwe_dpy_set is None:
-                    continue
-
-                is_vulnerable = float(vuln_labels[i].item()) >= 0.5
-                cwe_id = int(cwe_labels[i].item())
-                if is_vulnerable and cwe_id in cwe_dpy_set:
+                if cwe_id in cwe_dpy_set:
                     updated_weights[i].zero_()
                     updated_weights[i, self.expert_ccpp_idx] = 0.5
                     updated_weights[i, self.expert_mulvuln_idx] = 0.5
@@ -239,11 +236,9 @@ class MoE_VulnerabilityDetector(nn.Module):
         routing_probs = F.softmax(router_logits, dim=-1)
         fraction_routed = routing_weights.gt(0).float().mean(dim=0)
         prob_per_expert = routing_probs.mean(dim=0)
-
-        # Map language strings to language IDs
+        
         language_id_map = {"python": 1, "ccpp": 0}
         
-        # Vectorized expert processing
         for i, expert in enumerate(self.experts):
             expert_mask = (routing_weights[:, i] > 0)
             if expert_mask.any():
