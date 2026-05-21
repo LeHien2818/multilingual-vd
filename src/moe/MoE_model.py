@@ -73,8 +73,25 @@ class MoE_VulnerabilityDetector(nn.Module):
         self.router = Router(input_dim, num_experts, top_k)
         self.experts = nn.ModuleList([Language_Expert(input_dim, hidden_dim, dropout_rate) for _ in range(num_experts)])
 
+    def _apply_data_routing(self, routing_weights, languages=None):
+        if languages is None:
+            return routing_weights
+
+        updated_weights = routing_weights.clone()
+        for i, language in enumerate(languages):
+            language_lower = str(language).strip().lower()
+            if language_lower == "python":
+                updated_weights[i].zero_()
+                updated_weights[i, self.expert_python_idx] = 1.0        
+
+            if language_lower == "ccpp":      
+                updated_weights[i].zero_()
+                updated_weights[i, self.expert_ccpp_idx] = 1.0
+
+        return updated_weights
+
     def encode_code(self, code_strings, device):
-        """Encode code strings to embeddings using CodeBERT (on-the-fly, trainable)"""
+       
         if self.encoder is None:
             raise ValueError("Encoder not loaded")
         
@@ -112,13 +129,14 @@ class MoE_VulnerabilityDetector(nn.Module):
         
         return torch.cat(expert_outputs, dim=1)
 
-    def forward(self, x):
+    def forward(self, x, languages=None):
         x_orig = x
         x = self.input_norm(x)
         
         routing_weights, top_k_indices, router_logits = self.router(x)
         batch_size = x.size(0)
         final_output = torch.zeros(batch_size, 1, device=x.device, dtype=x.dtype)
+        routing_weights = self._apply_data_routing(routing_weights, languages)
 
         routing_probs = F.softmax(router_logits, dim=-1)
         fraction_routed = routing_weights.gt(0).float().mean(dim=0)

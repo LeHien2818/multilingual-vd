@@ -178,7 +178,6 @@ class MoE_VulnerabilityDetector(nn.Module):
         return updated_weights
 
     def get_expert_logits(self, x, routed_expert_ids=None):
-        """Return per-expert logits for language-based inference policy."""
         x_norm = self.input_norm(x)
         expert_outputs = []
         
